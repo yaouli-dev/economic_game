@@ -1,0 +1,30 @@
+{
+  "sha": "9cbda9381c6281c6b04bcf48bc7ce020371f62c3",
+  "url": "https://api.github.com/repos/yaouli-dev/economic_game/git/trees/9cbda9381c6281c6b04bcf48bc7ce020371f62c3",
+  "tree": [
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "03d3ff764b3616ad64f5c1764549042f356c3354",
+      "size": 12,
+      "url": "https://api.github.com/repos/yaouli-dev/economic_game/git/blobs/03d3ff764b3616ad64f5c1764549042f356c3354"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7dd4b48c73f3528a5e7b416d8c1258e70c852502",
+      "size": 641,
+      "url": "https://api.github.com/repos/yaouli-dev/economic_game/git/blobs/7dd4b48c73f3528a5e7b416d8c1258e70c852502"
+    },
+    {
+      "path": "pixel-shop",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9519e80eb7cc74f48148dc1adf5416f555a9c208",
+      "url": "https://api.github.com/repos/yaouli-dev/economic_game/git/trees/9519e80eb7cc74f48148dc1adf5416f555a9c208"
+    }
+  ],
+  "truncated": false
+}

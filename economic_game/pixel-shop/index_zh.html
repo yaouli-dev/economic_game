@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素小店 · 温馨模拟经营</title>
+<style>
+:root{
+  --bg:#fff6ea; --panel:#fffdf8; --panel2:#fdf2e0; --line:#e8d6ba;
+  --txt:#5a4632; --dim:#a08a6e; --warm:#e8934a; --warm2:#d97a3d;
+  --pink:#e88aa0; --green:#6fae5e; --red:#d96a5a; --amber:#d9a441;
+  --wood:#c89a6a; --woodD:#a87a4e;
+  --sans:'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif;
+  --pix:'Courier New',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--sans)}
+button{font-family:var(--sans);cursor:pointer;user-select:none}
+input,select{font-family:var(--sans)}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+#app{position:fixed;inset:0;background:var(--bg);overflow:hidden}
+#sceneBG{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;image-rendering:pixelated;image-rendering:crisp-edges}
+#sceneShop{width:100%;aspect-ratio:16/9;border-radius:12px;border:2px solid var(--line);box-shadow:0 4px 14px rgba(200,150,90,.18);image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* 柔和圆点底纹 */
+.dots{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.25;
+  background-image:radial-gradient(#e8d6ba 1.5px,transparent 1.5px);background-size:26px 26px}
+
+/* 音乐按钮 */
+#musicBtn{position:fixed;top:12px;right:12px;z-index:30;background:#fff;border:2px solid var(--line);
+  color:var(--warm);font-size:13px;padding:7px 13px;border-radius:999px;box-shadow:0 2px 8px rgba(200,150,90,.25)}
+#musicBtn:hover{border-color:var(--pink);color:var(--pink)}
+#musicBtn.off{color:var(--dim)}
+
+/* 打字机字幕 */
+#subBar{position:absolute;left:0;right:0;bottom:0;z-index:20;padding:0 0 30px;display:none}
+#subInner{max-width:720px;margin:0 auto;background:rgba(255,253,248,.94);border:2px solid var(--line);
+  border-bottom:none;border-radius:14px 14px 0 0;padding:16px 22px;min-height:84px;
+  box-shadow:0 -6px 24px rgba(200,150,90,.18)}
+#subText{font-size:18px;line-height:1.9;color:var(--txt);min-height:1.8em;white-space:pre-wrap;word-break:break-all;font-weight:500}
+#subCursor{display:inline-block;width:10px;height:20px;background:var(--warm);vertical-align:-3px;margin-left:3px;border-radius:2px;animation:blink .8s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+#subHint{position:absolute;left:0;right:0;bottom:8px;z-index:21;text-align:center;color:var(--warm2);
+  font-size:14px;letter-spacing:4px;opacity:.9;animation:blink 1.2s steps(1) infinite;text-shadow:0 1px 0 #fff}
+.typing #subHint{display:none}
+
+/* 通用屏幕 */
+.screen{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.screen.active{display:flex}
+.panel{background:rgba(255,253,248,.96);border:2px solid var(--line);border-radius:16px;box-shadow:0 6px 22px rgba(200,150,90,.16),inset 0 1px 0 rgba(255,255,255,.8)}
+
+/* 标题屏 */
+#scr-title{z-index:12;background:linear-gradient(to bottom,rgba(255,246,234,.35),rgba(255,246,234,.75))}
+#scr-title::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 60%,rgba(0,0,0,.12));pointer-events:none}
+.logo{font-family:var(--pix);font-size:clamp(32px,7vw,64px);color:#fffdf8;letter-spacing:8px;text-shadow:3px 3px 0 #7a5a40,6px 6px 0 rgba(122,90,64,.35),0 0 24px rgba(247,223,154,.6)}
+.logo .accent{color:var(--pink)}
+.logoSub{font-family:var(--pix);font-size:clamp(11px,2vw,15px);color:#fff3c4;letter-spacing:10px;margin-top:10px;text-shadow:2px 2px 0 rgba(122,90,64,.5)}
+.logoMeta{margin-top:14px;color:#fffdf8;font-size:14px;letter-spacing:2px;text-align:center;line-height:2;text-shadow:1px 1px 0 rgba(122,90,64,.4)}
+.logoMeta b{color:#f7df9a;font-weight:bold}
+.titleBtns{margin-top:28px;display:flex;flex-direction:column;gap:12px;width:min(300px,80vw)}
+.btn{background:rgba(255,253,248,.92);border:2px solid var(--line);color:var(--txt);padding:12px 0;text-align:center;
+  font-size:16px;letter-spacing:3px;border-radius:12px;transition:all .15s;box-shadow:0 3px 10px rgba(200,150,90,.2)}
+.btn:hover:not(:disabled){border-color:var(--warm);background:var(--warm);color:#fff;transform:translateY(-2px);box-shadow:0 6px 16px rgba(232,147,74,.35)}
+.btn:active:not(:disabled){transform:translateY(0)}
+.btn.ghost:hover:not(:disabled){border-color:var(--dim);background:rgba(253,242,224,.9);color:var(--txt)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn .small{font-size:12px;color:var(--dim);display:block;letter-spacing:1px;margin-top:4px;font-weight:normal}
+.btn:hover .small{color:#fff}
+.btn.primary{background:var(--warm);border-color:var(--warm2);color:#fff;font-weight:bold}
+.btn.primary:hover{background:var(--warm2)}
+
+/* 身份屏 */
+#scr-id{background:rgba(255,246,234,.92);justify-content:flex-start;overflow:auto}
+#idBox{width:min(780px,94vw);margin:auto;max-height:94vh;overflow:auto;padding:0 0 8px}
+#idTop{padding:16px 20px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#portrait{width:180px;aspect-ratio:16/10;border-radius:12px;border:2px solid var(--line)}
+#idTopTxt{flex:1;min-width:220px}
+#idTopTxt .t{font-family:var(--pix);font-size:15px;color:var(--warm2);letter-spacing:2px}
+#idTopTxt .s{margin-top:6px;font-size:13px;color:var(--dim);line-height:1.8}
+#idInit{margin-top:8px;font-size:14px;line-height:2;color:var(--dim)}
+#idInit b{color:var(--txt);font-weight:bold}
+#idInit .g{color:var(--green);font-weight:bold}
+#idFields{padding:6px 20px 0}
+.idField{padding:12px 0;border-bottom:1px dashed var(--line)}
+.idField label{display:block;font-size:13px;color:var(--warm2);font-weight:bold;margin-bottom:9px;letter-spacing:1px}
+.idField label b{color:var(--txt);font-weight:bold}
+.idInput{width:100%;background:#fff;border:2px solid var(--line);color:var(--txt);padding:11px 14px;font-size:16px;border-radius:10px;letter-spacing:1px}
+.idInput:focus{outline:none;border-color:var(--warm)}
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.chip{background:#fff;border:2px solid var(--line);color:var(--txt);padding:9px 15px;font-size:14px;border-radius:10px;transition:all .12s}
+.chip:hover{border-color:var(--warm)}
+.chip.on{border-color:var(--warm);color:var(--warm2);background:#fff4e4;font-weight:bold;box-shadow:0 0 0 3px rgba(232,147,74,.15)}
+.chip .mini{display:block;font-size:11px;color:var(--dim);font-weight:normal;margin-top:2px}
+.chip.locked{opacity:.5;position:relative}
+.chip.locked:after{content:'通关后解锁';font-size:10px;color:var(--red);margin-left:5px}
+#btnStart{margin:16px 20px 6px;background:var(--warm);border:2px solid var(--warm2);color:#fff;font-weight:bold;padding:14px;font-size:17px;letter-spacing:8px;border-radius:12px}
+#btnStart:hover{background:var(--warm2)}
+#idWarn{color:var(--red);font-size:13px;min-height:16px;padding:0 20px 4px}
+
+/* 游戏屏 */
+#scr-game{background:var(--bg);justify-content:flex-start;overflow:auto;padding:0}
+#statStrip{width:100%;background:rgba(255,253,248,.96);border-bottom:2px solid var(--line);display:flex;flex-wrap:wrap;font-size:13px;
+  box-shadow:0 3px 12px rgba(200,150,90,.12),inset 0 -1px 0 rgba(255,255,255,.8)}
+.stat{flex:1;min-width:140px;padding:10px 16px;border-right:1px solid var(--line);white-space:nowrap}
+.stat:last-child{border-right:none}
+.stat .k{color:var(--dim);font-size:11px;letter-spacing:2px}
+.stat .v{color:var(--txt);font-size:19px;margin-top:3px;font-weight:bold;font-family:var(--pix)}
+.stat .v.pos{color:var(--green)} .stat .v.neg{color:var(--red)} .stat .v.warm{color:var(--warm2)}
+#gameMain{width:min(1100px,98vw);margin:14px auto;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+#sceneCard{padding:12px;background:linear-gradient(180deg,#fffdf8,#fdf3e0);border-radius:16px;border:2px solid var(--line);box-shadow:0 6px 22px rgba(200,150,90,.16),inset 0 1px 0 rgba(255,255,255,.8)}
+#scenTitle{font-size:17px;color:var(--warm2);font-weight:bold;letter-spacing:1px;padding:14px 4px 4px}
+#scenText{font-size:15px;line-height:2;color:var(--txt);padding:4px 4px 10px;min-height:44px;white-space:pre-wrap;font-weight:500}
+#optList{padding:0 4px 4px;display:flex;flex-direction:column;gap:9px}
+.opt{background:rgba(255,255,255,.96);border:2px solid var(--line);color:var(--txt);padding:13px 15px;text-align:left;
+  font-size:15px;line-height:1.7;border-radius:12px;transition:all .13s;display:flex;gap:12px;align-items:flex-start;box-shadow:0 2px 8px rgba(200,150,90,.1)}
+.opt .ol{flex:none;width:30px;height:30px;border-radius:50%;background:var(--pink);color:#fff;font-weight:bold;
+  display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px}
+.opt .od{flex:1}
+.opt:hover:not(:disabled){border-color:var(--warm);transform:translateY(-2px);box-shadow:0 5px 14px rgba(232,147,74,.22)}
+.opt:disabled{opacity:.45;cursor:default}
+.opt.sel{opacity:1;border-color:var(--warm);background:#fff4e4;box-shadow:0 0 0 3px rgba(232,147,74,.18)}
+.opt.sel .ol{background:var(--warm)}
+#explainBox{display:none;margin:4px 4px 0;padding:14px 16px;border-radius:12px;background:linear-gradient(135deg,#f2fbe8,#e8f5d8);border:2px solid #cde3b8}
+#explainBox.on{display:block}
+#explainBox .et{font-size:13px;color:#5a8a3e;font-weight:bold;margin-bottom:6px;letter-spacing:1px}
+#explainBox .en{font-size:14px;line-height:1.95;color:#4a6a38}
+#resultNote{margin:4px 4px 0;padding:12px 16px 14px;border-radius:12px;background:linear-gradient(135deg,#fff4e4,#ffe8cc);border:2px solid #f2d9b0;font-size:14px;line-height:1.8;color:var(--txt);box-shadow:0 2px 8px rgba(200,150,90,.12)}
+#resultNote .rnNarr{margin-bottom:6px;font-size:13px;line-height:1.7;color:var(--warm2)}
+#resultNote .rnBig{font-size:27px;font-weight:bold;text-align:center;line-height:1.35;letter-spacing:1px}
+#resultNote .rnBig.pos{color:var(--green)} #resultNote .rnBig.neg{color:var(--red)}
+#resultNote .rnBig .rnTag{display:block;font-size:11px;font-weight:normal;color:var(--dim);letter-spacing:2px;margin-top:2px}
+#resultNote .rnCum{text-align:center;font-size:14px;margin-top:5px;color:var(--dim)}
+#resultNote .rnCum b.pos{color:var(--green)} #resultNote .rnCum b.neg{color:var(--red)}
+#modeDesc{margin:2px 4px 0;padding:10px 14px;border-radius:10px;background:#fdf6ea;border:1px dashed var(--amber);font-size:13px;line-height:1.95;color:var(--warm2)}
+#modeDesc b{color:var(--warm)}
+#btnHint{display:none;margin:10px 4px 0;background:#fff;border:2px dashed var(--amber);color:var(--warm2);
+  padding:11px 16px;font-size:14px;border-radius:10px;transition:all .13s;letter-spacing:1px;width:100%;text-align:center}
+#btnHint:hover:not(:disabled){background:#fff4e4;border-color:var(--warm);transform:translateY(-1px)}
+#btnHint:disabled{opacity:.55;cursor:default}
+#btnSettle2{display:none;margin:14px 4px 6px;background:var(--warm);border:2px solid var(--warm2);color:#fff;
+  font-weight:bold;padding:14px;font-size:17px;letter-spacing:6px;border-radius:12px;width:100%}
+#btnSettle2:hover{background:var(--warm2)}
+/* 状态小条 */
+#miniStats{margin-top:14px;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,#fffdf8,#fdf3e0);border:2px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;box-shadow:0 2px 8px rgba(200,150,90,.1)}
+#miniStats .ms .k{color:var(--dim);font-size:12px}
+#miniStats .ms .v{color:var(--warm2);font-weight:bold;font-family:var(--pix);margin-left:5px}
+#goalLine{margin-top:10px;font-size:13px;color:var(--dim);line-height:1.7}
+#goalLine b{color:var(--warm2)}
+
+/* 结算弹层 */
+#modal{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(120,80,40,.35);backdrop-filter:blur(4px)}
+#modal.on{display:flex}
+#modalBox{width:min(440px,92vw);max-height:90vh;overflow:auto;background:linear-gradient(180deg,#fffdf8,#fdf3e0);border-radius:18px;border:2px solid var(--line);
+  box-shadow:0 14px 40px rgba(140,90,40,.3)}
+#modalBox .panelTitle{font-size:15px;font-family:var(--pix);color:var(--warm2);letter-spacing:2px;padding:16px 20px 8px}
+#settleBody{padding:4px 20px 12px;font-size:14px;line-height:2}
+#settleBody .row{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:4px 0}
+#settleBody .row .k{color:var(--dim)} #settleBody .row .v{color:var(--txt);font-weight:bold}
+#settleBody .row.total{border:none;font-size:17px;padding-top:10px}
+#settleBody .row.total .v.pos{color:var(--green)} #settleBody .row.total .v.neg{color:var(--red)}
+#settleBody .warnLine{color:var(--red);font-size:13px;margin-top:8px}
+#settleBody .okLine{color:var(--green);font-size:13px;margin-top:8px}
+#btnSettle{width:100%;border:none;border-top:2px solid var(--line);background:var(--warm);color:#fff;
+  font-weight:bold;padding:14px;font-size:16px;letter-spacing:6px;border-radius:0 0 16px 16px}
+#btnSettle:hover{background:var(--warm2)}
+
+/* 浮动小提示 */
+#fxLayer{position:fixed;inset:0;z-index:35;pointer-events:none;overflow:hidden}
+.fxchip{position:absolute;font-size:13px;font-weight:bold;letter-spacing:1px;animation:fxup 1.5s ease forwards;white-space:nowrap;
+  background:rgba(255,255,255,.96);border:2px solid var(--line);border-radius:8px;padding:3px 8px;box-shadow:0 3px 8px rgba(200,150,90,.2)}
+.fxchip.p{color:var(--green);border-color:#b9d9a8} .fxchip.m{color:var(--red);border-color:#eec4b8} .fxchip.n{color:var(--warm2);border-color:#f2d9b0}
+@keyframes fxup{0%{opacity:0;transform:translateY(10px) scale(.9)}12%{opacity:1;transform:translateY(0) scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1)}}
+
+/* 结果屏 */
+#scr-result{background:rgba(255,246,234,.95);justify-content:flex-start;overflow:auto}
+#resBox{width:min(680px,94vw);margin:auto;max-height:96vh;overflow:auto;padding:0 0 10px}
+#resTitle{font-family:var(--pix);font-size:22px;letter-spacing:2px;padding:22px 24px 10px;text-align:center}
+#resTitle.win{color:var(--green)} #resTitle.lose{color:var(--red)} #resTitle.over{color:var(--amber)}
+#resTitle .sub{font-family:var(--sans);font-size:15px;color:var(--dim);letter-spacing:1px;margin-top:8px;font-weight:normal}
+#resStats{padding:10px 24px;font-size:15px;line-height:2.2;background:linear-gradient(180deg,#fffdf8,#fdf3e0);margin:0 24px;border-radius:12px;border:2px solid var(--line)}
+#resStats b{color:var(--warm2);font-weight:bold}
+#resFootprint{padding:14px 24px;font-size:14px;line-height:2.1;color:var(--txt)}
+#resFootprint .ft{font-family:var(--pix);font-size:13px;color:var(--warm2);letter-spacing:2px;margin-bottom:6px}
+#resFootprint span.hl{color:var(--warm2);font-weight:bold}
+#resRuns{font-size:13px;line-height:2.1;color:var(--dim);padding:0 24px}
+#resBtns{display:flex;flex-direction:column;gap:12px;width:100%;padding:18px 24px 8px}
+#resBtns .btn{width:100%}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--panel2)}
+::-webkit-scrollbar-thumb{background:#e2cba6;border-radius:4px}
+@media (max-width:900px){
+  #gameMain{grid-template-columns:1fr}
+  #subInner{font-size:16px}
+  .stat{min-width:33.3%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="sceneBG" width="320" height="180"></canvas>
+  <div class="dots"></div>
+
+  <!-- 打字机字幕层 -->
+  <div id="subBar"><div id="subInner"><span id="subText"></span><span id="subCursor"></span></div></div>
+  <div id="subHint">▶ 点击继续</div>
+
+  <!-- 标题屏 -->
+  <section id="scr-title" class="screen">
+    <div class="logo">模拟<span class="accent">小店</span>经营</div>
+    <div class="logoSub">COZY PIXEL SHOP</div>
+    <div class="logoMeta">温馨模拟经营 · 经济学入门<br>你的选择，影响每一天</div>
+    <div class="titleBtns">
+      <button class="btn primary" id="btnNew">开始新游戏</button>
+      <button class="btn" id="btnContinue" disabled>继续经营<span class="small" id="contInfo"></span></button>
+      <button class="btn ghost" id="btnReset">重置存档</button>
+    </div>
+  </section>
+
+  <!-- 身份屏 -->
+  <section id="scr-id" class="screen">
+    <div id="idBox" class="panel">
+      <div id="idTop">
+        <canvas id="portrait" width="200" height="125"></canvas>
+        <div id="idTopTxt">
+          <div class="t">★ 你的身份</div>
+          <div class="s">被裁员的打工人，决定开一家自己的小店。<br>¥150,000 全投进店里，从 <b>¥0</b> 开始经营。</div>
+          <div id="idInit"></div>
+        </div>
+      </div>
+      <div id="idFields">
+        <div class="idField"><label>姓名（<b>自定义</b>）</label>
+          <input class="idInput" id="inpName" maxlength="8" placeholder="输入你的名字">
+        </div>
+        <div class="idField"><label>年龄（<b>自定义</b>）</label>
+          <input class="idInput" id="inpAge" type="number" min="16" max="99" value="26" placeholder="输入你的年龄">
+        </div>
+        <div class="idField"><label>店铺类型（<b>你说了算</b>）</label>
+          <div class="chips" id="chipsShop"></div>
+        </div>
+        <div class="idField"><label>经营目标</label>
+          <div class="chips" id="chipsMode"></div>
+          <div id="modeDesc"></div>
+        </div>
+        <div id="idWarn"></div>
+        <button class="btn primary" id="btnStart" style="width:calc(100% - 40px);margin:14px 20px">开始经营 ▸</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 游戏屏 -->
+  <section id="scr-game" class="screen">
+    <div id="statStrip">
+      <div class="stat"><div class="k">现金</div><div class="v" id="stCash">¥0.00</div></div>
+      <div class="stat"><div class="k">本月累计净利</div><div class="v" id="stPl">¥0</div></div>
+      <div class="stat"><div class="k">进度</div><div class="v" id="stMon">环节 1 / 10</div></div>
+    </div>
+    <div id="gameMain">
+      <div>
+        <div class="panel" id="sceneCard">
+          <canvas id="sceneShop" width="320" height="180"></canvas>
+          <div id="scenTitle"></div>
+          <div id="scenText"></div>
+          <div id="optList"></div>
+          <div id="explainBox"><div class="et">📖 经济小课堂</div><div class="en" id="explainTxt"></div></div>
+          <button id="btnHint">💡 购买提示（¥200）</button>
+          <div id="resultNote" style="display:none"></div>
+          <button id="btnSettle2">下一题 ▸</button>
+          <div id="miniStats"></div>
+          <div id="goalLine"></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="padding:18px 20px">
+          <div style="font-family:var(--pix);font-size:13px;color:var(--warm2);letter-spacing:2px;margin-bottom:12px">经营小贴士</div>
+          <div id="tipBox" style="font-size:14px;line-height:2;color:var(--txt)"></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:2px dashed var(--line)">
+            <div style="font-size:13px;color:var(--dim);margin-bottom:8px">本月大事记</div>
+            <div id="logBody" style="font-size:13px;line-height:1.9;color:var(--dim)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 结果屏 -->
+  <section id="scr-result" class="screen">
+    <div id="resBox" class="panel">
+      <div id="resTitle" class="over">— 经营报告 —<div class="sub"></div></div>
+      <div id="resStats"></div>
+      <div id="resFootprint"></div>
+      <div id="resRuns"></div>
+      <div id="resBtns"></div>
+    </div>
+  </section>
+
+  <!-- 结算弹层 -->
+  <div id="modal"><div id="modalBox" class="panel">
+    <div class="panelTitle">♨ 一个月经营 · 结算报告</div>
+    <div id="settleBody"></div>
+    <button id="btnSettle">查看结局 ▸</button>
+  </div></div>
+
+  <div id="fxLayer"></div>
+  <button id="musicBtn">♪ 音乐开</button>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   像素小店 · 温馨版
+============================================================ */
+const $ = id => document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmtC=n=>(n<0?'-':'')+'¥'+Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtI=n=>Math.round(n).toLocaleString('zh-CN');
+const fmtS=n=>(n>=0?'+':'')+Math.round(n).toLocaleString('zh-CN');
+const R=(ctx,x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));};
+
+/* ---------------- 音乐引擎（柔和芯片音乐） ---------------- */
+const Midi=n=>440*Math.pow(2,(n-69)/12);
+const AudioEngine={
+  ctx:null, master:null, timer:null, current:null, muted:false,
+  init(){ if(this.ctx) return;
+    try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+    this.master=this.ctx.createGain(); this.master.gain.value=0.22; this.master.connect(this.ctx.destination);
+  },
+  resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
+  _tone(type,freq,start,dur,vol,dest){
+    const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,start);
+    g.gain.exponentialRampToValueAtTime(vol,start+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,start+dur);
+    o.connect(g); g.connect(dest||this.master);
+    o.start(start); o.stop(start+dur+0.05);
+  },
+  playSong(name){
+    if(!this.ctx||this.muted){ this.current=name; return; }
+    if(this.timer){ clearInterval(this.timer); this.timer=null; }
+    const s=SONGS[name]; if(!s) return;
+    this.current=name;
+    const step=60/s.bpm, look=0.18;
+    let nextT=this.ctx.currentTime+0.06, idx=[0,0,0,0], trackT=[0,0,0,0];
+    const tick=()=>{
+      for(let tr=0;tr<s.tracks.length;tr++){
+        const t=s.tracks[tr], seq=t.seq;
+        while(trackT[tr] < this.ctx.currentTime-nextT+look){
+          const ev=seq[idx[tr]%seq.length];
+          if(ev[0]!==null){
+            const dur=ev[1]*step;
+            if(ev[0]===0){ this._noise(nextT,dur,t.vol); }
+            else this._tone(t.type,Midi(ev[0]),nextT,dur,t.vol);
+          }
+          trackT[tr]+=ev[1]*step;
+          idx[tr]++;
+          if(idx[tr]>=seq.length) idx[tr]=0;
+        }
+      }
+      nextT+=step/2;
+    };
+    this.timer=setInterval(tick,50);
+    tick();
+  },
+  _noise(t,dur,vol){
+    const len=Math.max(1,Math.floor(this.ctx.sampleRate*dur));
+    const buf=this.ctx.createBuffer(1,len,this.ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const src=this.ctx.createBufferSource(); src.buffer=buf;
+    const g=this.ctx.createGain(); g.gain.value=vol;
+    src.connect(g); g.connect(this.master); src.start(t);
+  },
+  sfx(name){
+    if(!this.ctx||this.muted) return;
+    const t=this.ctx.currentTime;
+    const f=(n,d,v,type)=>{ if(n) this._tone(type||'triangle',Midi(n),t,d,v); };
+    switch(name){
+      case 'click': f(80,.08,.07); break;
+      case 'coin': f(83,.1,.09); f(88,.12,.07,'triangle'); break;
+      case 'buy': f(76,.1,.09); f(83,.13,.08); break;
+      case 'hurt': f(64,.3,.07); f(55,.35,.05); break;
+      case 'win': [72,76,79,84,88].forEach((n,i)=>setTimeout(()=>this._tone('triangle',Midi(n),this.ctx.currentTime,.16,.08),i*100)); break;
+      case 'lose': [72,69,64,57].forEach((n,i)=>setTimeout(()=>this._tone('sawtooth',Midi(n),this.ctx.currentTime,.2,.04),i*120)); break;
+      case 'cash': f(84,.06,.06); f(91,.07,.05,'triangle'); break;
+    }
+  }
+};
+const SONGS={
+  title:{bpm:88,tracks:[
+    {type:'triangle',vol:.11,seq:[[60,1],[64,1],[67,1],[72,1],[67,1],[64,1],[60,1],[null,1],[62,1],[65,1],[69,1],[74,1],[69,1],[65,1],[62,1],[null,1]]},
+    {type:'square',vol:.03,seq:[[48,2],[43,2],[40,2],[43,2],[50,2],[43,2],[40,2],[43,2]]}
+  ]},
+  story:{bpm:74,tracks:[
+    {type:'triangle',vol:.1,seq:[[62,1],[64,1],[67,1],[64,1],[67,1],[71,1],[69,2],[67,1],[69,1],[71,1],[69,1],[64,2],[null,2],[67,1],[71,1],[74,1],[71,1],[69,2],[67,1],[69,1],[67,1],[64,1],[62,2],[null,1]]},
+    {type:'square',vol:.025,seq:[[50,2],[57,2],[47,2],[55,2],[50,2],[57,2],[47,2],[55,2]]}
+  ]},
+  game:{bpm:112,tracks:[
+    {type:'triangle',vol:.1,seq:[[64,.5],[67,.5],[71,.5],[76,.5],[71,1],[67,.5],[64,.5],[67,1],[71,1],[64,1],[67,.5],[71,.5],[74,.5],[79,.5],[74,.5],[71,.5],[74,1],[71,.5],[67,.5],[71,1],[64,1]]},
+    {type:'square',vol:.022,seq:[[52,1],[59,1],[60,1],[55,1],[52,1],[59,1],[52,1],[55,1]]}
+  ]},
+  win:{bpm:120,tracks:[
+    {type:'triangle',vol:.11,seq:[[64,.5],[67,.5],[71,.5],[76,.5],[72,1],[71,.5],[67,.5],[69,1],[67,.5],[64,.5],[62,1],[67,.5],[71,.5],[74,.5],[79,.5],[76,1],[74,.5],[71,.5],[72,1],[76,1],[81,2]]},
+    {type:'square',vol:.025,seq:[[52,1],[59,1],[60,1],[55,1],[52,1],[59,1],[52,1],[59,1]]}
+  ]},
+  over:{bpm:68,tracks:[
+    {type:'sawtooth',vol:.028,seq:[[72,1.5],[71,.5],[69,1],[67,1],[65,1.5],[67,.5],[62,2],[null,2]]},
+    {type:'triangle',vol:.1,seq:[[48,2],[45,2],[41,2],[38,2]]}
+  ]}
+};
+
+/* ---------------- 像素美术：小女孩店主 ---------------- */
+const PAL_G={H:'#5a3a2a',S:'#ffe3c8',E:'#33241a',C:'#f2a0b8',P:'#d97a92',B:'#b05f72',R:'#f7b8a0',X:'#7a4a30'};
+const SPR_G_A=[ // 站立 / 行走帧A（12x16）
+'....HHHH....',
+'...HHHHHH...',
+'..HHHHHHHH..',
+'..HHSSSSHH..',
+'..HSEESSEH..',
+'..HSSRRSSH..',
+'..HSSSSSSH..',
+'...SSSSSS...',
+'...CCCCCC...',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..CPPP.PPC..',
+'..CPP..PPC..',
+'..BB....BB..',
+'..BB....BB..'];
+const SPR_G_B=[ // 行走帧B（抬左脚）
+'....HHHH....',
+'...HHHHHH...',
+'..HHHHHHHH..',
+'..HHSSSSHH..',
+'..HSEESSEH..',
+'..HSSRRSSH..',
+'..HSSSSSSH..',
+'...SSSSSS...',
+'...CCCCCC...',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..CPPP.PPC..',
+'..CP..PPC...',
+'..BB..BB....',
+'..BB..BB....'];
+const PAL_H2={H:'#4a4038',S:'#ffe3c8',E:'#33241a',C:'#7d8ca0',P:'#3a3f4a',B:'#23262b',T:'#d96a5a'};
+const SPR_HR=[ // HR 经理
+'....HHHH....',
+'...HHHHHH...',
+'..HHHHHHHH..',
+'..HHSSSSHH..',
+'..HSSSSSSH..',
+'..HSSSSSSH..',
+'..HSSSSSSH..',
+'...SSSSSS...',
+'...CCCCCC...',
+'..CCCCCCCC..',
+'..CCTTCCCC..',
+'..CCCCCCCC..',
+'..PPPPPPPP..',
+'..PP....PP..',
+'..BB....BB..',
+'..BB....BB..'];
+const PAL_C1={H:'#4a2c20',S:'#ffe3c8',E:'#33241a',C:'#9fb8d9',P:'#4a4a58',B:'#3a3a44'};
+const PAL_C2={H:'#2c2c38',S:'#ffdfc0',E:'#33241a',C:'#e8b48c',P:'#5a4a3a',B:'#3a3a44'};
+const SPR_CUST=[
+'....HHHH....',
+'...HHHHHH...',
+'..HHSSSSHH..',
+'..HSSSSSSH..',
+'..HSSSSSSH..',
+'..HSSSSSSH..',
+'...SSSSSS...',
+'...CCCCCC...',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..CCCCCCCC..',
+'..PPPPPPPP..',
+'..PP....PP..',
+'..BB....BB..'];
+const PAL_CAT={H:'#8a6a4a',S:'#ffdfa0'};
+const SPR_CAT=['..HHHH..','.HHHHHH.','HHSHHSHH','HHHHHHHH','.HHHHHH.','..HHHH..'];
+const SPR_POT={L:'#7fae6a',D:'#5a8a4a',P:'#c89a6a'};
+const SPR_POTARR=['..LL..','.LLLL.','LLLLLL','.LLLL.','.PPPP.','.PPPP.','.PPPP.'];
+function putSprite(ctx,map,pal,x,y,flip){
+  for(let r=0;r<map.length;r++){
+    const row=map[r];
+    for(let c=0;c<row.length;c++){
+      const ch=row[c]; if(ch==='.'||ch===' ') continue;
+      const col=pal[ch]; if(!col) continue;
+      ctx.fillStyle=col; ctx.fillRect(x+(flip?row.length-1-c:c),y+r,1,1);
+    }
+  }
+}
+/* 画小女孩：pose = stand|walk|wave|sit|think|jump */
+function drawGirl(ctx,x,y,t,pose){
+  let fr=SPR_G_A, bob=0;
+  if(pose==='walk'){ fr=(Math.floor(t*4)%2)?SPR_G_B:SPR_G_A; bob=(Math.floor(t*4)%2)?1:0; }
+  putSprite(ctx,fr,PAL_G,x,y+bob);
+  // 双马尾
+  const sw=Math.floor(Math.sin(t*3))*0; // 静止
+  R(ctx,x-3, y+2+sw, 3, 6, PAL_G.X);
+  R(ctx,x+12,y+2+sw, 3, 6, PAL_G.X);
+  R(ctx,x-4, y+1, 2, 2, PAL_G.C);  // 左发圈
+  R(ctx,x+14,y+1, 2, 2, PAL_G.C);  // 右发圈
+  // 腮红（固定画在脸上更自然，这里略）
+  if(pose==='wave'){ // 挥手：右臂抬起
+    const a=Math.floor(t*3)%2;
+    R(ctx,x+9,y+7,2,5,PAL_G.C);
+    R(ctx,x+10+a,y+5,2,3,PAL_G.C);
+    R(ctx,x+10+a,y+4,2,2,PAL_G.S);
+  }
+  if(pose==='sit'){ // 坐姿：稍微矮一点 + 腿前伸（由前景覆盖）
+    putSprite(ctx,SPR_G_A,PAL_G,x,y+3);
+  }
+  if(pose==='think'){ // 仰望：头顶小星星
+    const sy=y-6-Math.floor((t*1.2)%3);
+    R(ctx,x+3,sy,1,1,'#f2c94c'); R(ctx,x+5,sy-1,1,1,'#f2c94c'); R(ctx,x+4,sy,1,1,'#fff7d6');
+    R(ctx,x+7,sy+1,1,1,'#f2c94c');
+  }
+  // 眨眼
+  if((t*0.9)%4<0.15){ R(ctx,x+3,y+4,2,1,PAL_G.S); R(ctx,x+7,y+4,2,1,PAL_G.S); }
+}
+/* 画猫咪（尾巴会动） */
+function drawCat(ctx,x,y,t){
+  const tail=Math.floor(t*2)%2;
+  putSprite(ctx,SPR_CAT,PAL_CAT,x,y);
+  R(ctx,x+ (tail?8:9), y+ (tail?3:4), 2,2, PAL_CAT.H);
+}
+
+/* ---------------- 像素场景（温馨暖色） ---------------- */
+const ctxBG=$('sceneBG').getContext('2d');
+const ctxShop=$('sceneShop').getContext('2d');
+const ctxPor=$('portrait').getContext('2d');
+
+function drawStars(ctx,t){
+  for(let i=0;i<22;i++){
+    const x=(i*37)%320, y=(i*53)%64;
+    if(((i+Math.floor(t*0.7))%7)<3) R(ctx,x,y,1,1,'#fff7d6');
+  }
+}
+function drawMoon(ctx,x,y){
+  R(ctx,x,y,8,8,'#fff3c4'); R(ctx,x+4,y+1,2,2,'#f7df9a');
+}
+
+/* 1.1-A 温馨出租屋（夜） */
+function drawApt(t){
+  const c=ctxBG;
+  R(c,0,0,320,152,'#f2dcc0');          // 暖墙
+  R(c,0,152,320,28,'#d4a878');         // 木地板
+  R(c,0,150,320,3,'#c89a6a');
+  // 挂画
+  R(c,34,40,30,38,'#e8b48c'); R(c,37,43,24,32,'#a8d8a0'); R(c,41,48,16,12,'#8a5a3b'); R(c,44,64,10,8,'#f2c94c');
+  // 窗户（夜）
+  const wx=178,wy=22,ww=118,wh=96;
+  R(c,wx-8,wy-8,ww+16,wh+16,'#a87a4e');
+  R(c,wx-3,wy-3,ww+6,wh+6,'#3a3a5c');
+  R(c,wx,wy,ww,wh,'#2c2c50');
+  R(c,wx,wy,ww,wh,'rgba(255,247,214,.05)');
+  drawStars(c,t); drawMoon(c,wx+86,wy+8);
+  for(let i=0;i<6;i++){ // 城市灯光
+    const bx=wx+8+i*18, bh=14+(i*7)%20;
+    R(c,bx,wy+wh-bh-8,12,bh,'#23234a');
+    if(((i+Math.floor(t*1.2))%5)<3) R(c,bx+3,wy+wh-bh-4,4,4,'#f7df9a');
+  }
+  // 窗帘
+  R(c,wx-8,wy-8,12,wh+16,'#e8a0b0'); R(c,wx-8,wy-8,12,9,'#f2b8c4');
+  R(c,wx+ww-4,wy-8,12,wh+16,'#e8a0b0'); R(c,wx+ww-4,wy-8,12,9,'#f2b8c4');
+  // 吊灯（暖光脉动）
+  R(c,150,32,3,28,'#a87a4e'); R(c,136,28,31,9,'#f7df9a');
+  const glow=.12+((Math.floor(t*2)%3)?0:.05);
+  c.fillStyle='rgba(247,223,154,'+glow+')'; c.fillRect(112,38,80,64);
+  // 床
+  R(c,16,118,126,36,'#b08a5e'); R(c,20,110,118,12,'#e8b48c'); R(c,20,120,88,24,'#f2a0b8');
+  R(c,96,108,28,9,'#f7df9a'); R(c,22,108,9,26,'#8a5a3b');
+  drawCat(c,72,112,t);
+  // 书桌 + 台灯
+  R(c,252,124,58,26,'#a87a4e'); R(c,256,150,6,4,'#8a6a4a'); R(c,300,150,6,4,'#8a6a4a');
+  R(c,272,102,3,22,'#8a6a4a'); R(c,258,96,30,10,'#f2c94c');
+  c.fillStyle='rgba(242,201,76,.18)'; c.fillRect(258,106,30,30);
+  R(c,252,112,28,16,'#eef2f6'); R(c,254,114,24,12,'#fff7d6');
+  if(Math.floor(t)%3<2) R(c,256,116,20,8,'#a8d8a0'); else R(c,256,116,20,8,'#7fae6a');
+  // 女孩坐在床边看手机
+  drawGirl(c,42,132,t,'sit');
+  R(c,47,144,3,6,'#d9e8ff'); // 手机
+  if(Math.floor(t*2)%3<2) R(c,48,145,2,4,'#9ad7ff');
+}
+/* 1.1-B 温馨办公室（白天） */
+function drawOffice(t){
+  const c=ctxBG;
+  R(c,0,0,320,180,'#f5e6d0');          // 墙
+  R(c,0,116,320,64,'#e8d0b0');         // 地面
+  R(c,0,112,320,4,'#d4b890');
+  // 百叶窗
+  R(c,14,16,150,74,'#dfe8ee'); R(c,18,20,142,66,'#f7fbfc');
+  for(let i=0;i<8;i++) R(c,18,20+i*8,142,3,'#cfe0e8');
+  R(c,16,86,146,4,'#a8b8c4');
+  // 绿植
+  R(c,238,98,6,18,'#8a6a4a'); R(c,222,74,38,28,'#a8d8a0'); R(c,228,80,26,14,'#bfe0a8');
+  // 时钟
+  R(c,272,16,22,22,'#a87a4e'); R(c,276,20,14,14,'#fffdf8');
+  const ang=((t*0.4)%1)*Math.PI*2;
+  R(c,283,27,1,5,'#5a4632'); R(c,281+Math.round(Math.sin(ang)*4),27-Math.round(Math.cos(ang)*4),1,1,'#d96a5a');
+  // 顶灯
+  R(c,76,2,168,8,'#fffdf8'); c.fillStyle='rgba(255,253,248,.5)'; c.fillRect(70,10,180,14);
+  // 会议桌 + 纸箱
+  R(c,56,118,208,16,'#b08a5e'); R(c,64,134,10,22,'#8a6a4a'); R(c,246,134,10,22,'#8a6a4a');
+  R(c,88,106,60,12,'#fffdf8'); R(c,92,108,52,2,'#dfe8ee');
+  R(c,94,109,22,2,'#d96a5a'); R(c,120,109,18,2,'#d96a5a');
+  // HR（右，指文件）
+  putSprite(ctxBG,SPR_HR,PAL_H2,232,100);
+  const hx=232+((Math.floor(t*2)%2)?0:1);
+  R(c,hx+9,96,2,3,PAL_H2.S); R(c,hx+10,94,3,2,PAL_H2.S); // 手指桌
+  // 女孩（左，抱着纸箱）
+  drawGirl(c,52,98,t,'stand');
+  R(c,44,112,14,10,'#d9a878'); R(c,40,122,22,3,'#b08a5e');
+  // 咖啡
+  R(c,160,112,9,7,'#8a5a3b'); R(c,161,106,7,6,'#e8b48c');
+}
+/* 1.1-C 走出写字楼（日落街道） */
+function drawStreet(t){
+  const c=ctxBG;
+  const bands=['#f7dfc4','#f7c8a0','#f2a880','#e88a5a','#d96a3a'];
+  bands.forEach((col,i)=>R(c,0,i*18,320,18,col));
+  // 太阳
+  R(c,252,14,16,16,'#fff3c4'); R(c,255,26,10,3,'#f7df9a');
+  drawMoon(c,40,12); drawStars(c,t);
+  // 云
+  const cx=((t*7)%360)-30; R(c,cx,26,30,8,'#fffdf8'); R(c,cx+8,20,16,7,'#fffdf8');
+  // 远景楼群
+  for(let i=0;i<5;i++){
+    const x=24+i*56, h=26+(i*17)%30;
+    R(c,x,90-h,44,h+2,'#8a5a6a');
+    for(let a=2;a<40;a+=5) for(let b=2;b<h-2;b+=6){
+      if((a+b+i)%8<3) R(c,x+a,92-h+b,3,3,'#f7df9a');
+    }
+  }
+  R(c,0,90,320,4,'#7a4a5a');
+  // 写字楼（近景）
+  R(c,0,56,86,94,'#b08a6a'); R(c,2,58,82,90,'#c8a080');
+  for(let a=4;a<80;a+=8) for(let b=4;b<86;b+=10)
+    R(c,2+a,60+b,5,6,((a+b+Math.floor(t))%11<4)?'#fff3c4':'#b08a6a');
+  R(c,84,52,6,98,'#8a6a4a');
+  R(c,252,52,68,98,'#b08a6a'); for(let a=2;a<64;a+=8) for(let b=4;b<90;b+=10)
+    R(c,254+a,58+b,5,6,((a+b)%9<4)?'#fff3c4':'#8a6a4a');
+  // 树
+  R(c,128,114,4,36,'#8a6a4a'); R(c,110,82,40,34,'#7fae6a'); R(c,116,86,28,12,'#a8d8a0');
+  R(c,150,108,4,42,'#8a6a4a'); R(c,136,80,32,28,'#7fae6a'); R(c,142,84,22,10,'#a8d8a0');
+  // 人行道
+  R(c,0,150,320,30,'#e8d0b0'); R(c,0,148,320,2,'#d4b890');
+  // 女孩走路（背着行李袋）
+  const x=Math.floor((t*22)%350)-16;
+  drawGirl(c,x,132,t,'walk');
+  R(c,x+4,128,9,8,'#d96a5a'); R(c,x+6,124,1,6,'#b05f50');
+  // 鸟
+  const bx=Math.floor((t*14)%320);
+  R(c,bx,36,7,3,'#5a4632'); R(c,bx+3,33,3,3,'#5a4632');
+}
+/* 1.1-D 梦想：夜晚的小吃街 */
+function drawDream(t){
+  const c=ctxBG;
+  R(c,0,0,320,90,'#3a3a6a');
+  for(let i=0;i<320;i+=8){ R(c,i,Math.floor(60+Math.sin(i/23)*6),8,2,'#4a4a7a'); }
+  drawStars(c,t); drawMoon(c,30,14);
+  const shops=[['咖','啡','#e8934a'],['奶','茶','#e88aa0'],['便','利','#6fae8e'],['小','吃','#d96a5a']];
+  const sx=[8,88,168,248];
+  shops.forEach((sh,i)=>{
+    const x=sx[i], col=sh[2];
+    R(c,x,78,64,72,'#f7e8d0');                 // 店面
+    R(c,x-4,74,72,10,col);                     // 雨棚
+    for(let k=0;k<9;k++) if(k%2) R(c,x-4+k*8,74,4,10,'rgba(120,80,40,.3)');
+    R(c,x+6,84,52,16,'#fff3c4');               // 橱窗暖光
+    if(Math.floor(t*2)%5===0) R(c,x+6,84,52,16,'#f7df9a');
+    R(c,x+26,100,12,50,'#a87a4e');             // 门
+    R(c,x+40,104,4,7,'#f2c94c');               // 门牌灯
+    R(c,x+12,58,40,9,'#5a4632');               // 招牌
+    c.fillStyle='#fffdf8'; c.font='bold 9px "Microsoft YaHei",sans-serif'; c.fillText(sh[0]+sh[1],x+17,65);
+    if(Math.floor(t*1.5)%4<2) R(c,x+8,62,2,2,'#f2c94c'); // 招牌星闪
+  });
+  R(c,0,150,320,30,'#e8d0b0'); R(c,0,148,320,2,'#d4b890');
+  [60,160,260].forEach((x)=>{
+    R(c,x,80,3,70,'#a87a4e'); R(c,x-6,76,15,6,'#f2c94c');
+    c.fillStyle='rgba(242,201,76,'+(0.12+((Math.floor(t*2)%3)?0:.05))+')'; c.fillRect(x-22,80,44,70);
+  });
+  // 女孩站街心仰望
+  drawGirl(c,150,134,t,'think');
+}
+/* 游戏场景：店铺 */
+const SHOP_PAL={
+  coffee:{col:'#e8934a',name:'咖啡'},
+  tea:{col:'#e88aa0',name:'奶茶'},
+  store:{col:'#6fae8e',name:'便利店'},
+  snack:{col:'#d96a5a',name:'小吃'}
+};
+function drawCloud(ctx,x,y){
+  R(ctx,x,y,18,6,'#fffdf8'); R(ctx,x+2,y-4,14,4,'#fffdf8'); R(ctx,x+4,y-6,8,2,'#fffdf8');
+}
+
+function drawShopScene(t){
+  const c=ctxShop, st=S?S.shopType:'coffee';
+  const col=SHOP_PAL[st].col;
+  c.clearRect(0,0,320,180);
+
+  // 天空
+  R(c,0,0,320,96,'#b8dff5'); R(c,0,88,320,8,'#a0d0ea'); R(c,0,96,320,84,'#f4e8d8');
+  // 太阳
+  R(c,268,14,16,16,'#f2c94c'); R(c,270,16,12,12,'#f7df9a');
+  for(let i=0;i<4;i++){ const a=t*0.5+i*1.57; R(c,Math.round(276+Math.cos(a)*13),Math.round(22+Math.sin(a)*13),2,2,'#f7df9a'); }
+  // 云朵
+  drawCloud(c,36+Math.sin(t*0.25)*6,22); drawCloud(c,190+Math.sin(t*0.18+2)*4,16);
+
+  // 街道
+  R(c,0,150,320,30,'#e0c8a8'); for(let i=0;i<320;i+=20) R(c,i,150,1,30,'#d0b898');
+  R(c,0,148,320,2,'#c8a888');
+
+  // 店铺主体
+  R(c,26,60,268,90,'#fdf3e0');        // 奶油墙
+  R(c,26,148,268,6,'#a07850');          // 木基座
+  R(c,26,152,268,4,'#8a6840');
+
+  // 绿白条纹遮阳篷（温馨像素风核心）
+  R(c,24,62,272,22,'#5a4030');         // 木框
+  const AWG='#6ba865', AWW='#f2f8f0';
+  for(let x=28;x<292;x+=10){ R(c,x,66,5,16,AWG); R(c,x+5,66,5,16,AWW); }
+  for(let x=28;x<292;x+=10){ R(c,x+2,82,6,3,AWG); } // 锯齿边
+
+  // 木质招牌（只写店名）
+  R(c,78,40,164,20,'#7a5a40'); R(c,80,42,160,16,'#8a6a50');
+  c.fillStyle='#fffdf8'; c.font='bold 10px "Microsoft YaHei",sans-serif';
+  let sign=(S?S.name:'小美')+'的'+SHOP_PAL[st].name+'店';
+  if(sign.length>10) sign=(S?S.name:'小美').slice(0,4)+'的'+SHOP_PAL[st].name+'店';
+  c.fillText(sign,90+(140-c.measureText(sign).width)/2,55);
+  // 招牌小叶子
+  R(c,76,46,4,4,'#a8d8a0'); R(c,240,46,4,4,'#a8d8a0');
+
+  // 左橱窗：甜品展示柜
+  R(c,34,92,96,48,'#f2e8d0'); R(c,36,94,92,44,'#fff8e8');
+  R(c,38,120,88,4,'#c8a080');          // 展台
+  // 像素蛋糕1（草莓）
+  R(c,44,108,14,12,'#f2c94c'); R(c,46,104,10,4,'#f7a0b0'); R(c,48,102,2,2,'#d85060');
+  // 像素蛋糕2（巧克力）
+  R(c,66,110,12,10,'#c8a080'); R(c,68,106,8,4,'#f2c94c');
+  // 像素蛋糕3（芝士）
+  R(c,86,112,10,8,'#f7e0a0'); R(c,88,108,6,4,'#a8d8a0');
+  // 橱窗暖光
+  if(Math.floor(t*2)%3<2) R(c,36,94,92,2,'rgba(255,247,214,.6)');
+
+  // 木门
+  R(c,138,94,26,46,'#a07850'); R(c,140,96,22,42,'#8a6840');
+  R(c,158,114,4,4,'#f2c94c');          // 门把手
+  // 像素小挂牌（图形，不写字）
+  R(c,144,98,14,10,'#f2c94c'); R(c,146,100,10,6,'#fffdf8');
+
+  // 右橱窗：小物黑板
+  R(c,170,92,110,48,'#f2e8d0'); R(c,172,94,106,44,'#fff8e8');
+  // 黑板
+  R(c,178,100,60,30,'#3a3028'); R(c,180,102,56,26,'#4a4038');
+  // 像素咖啡杯
+  R(c,186,108,10,12,'#f2c94c'); R(c,188,106,6,2,'#f7df9a'); R(c,192,110,2,4,'#f2c94c');
+  // 像素茶壶
+  R(c,208,110,12,10,'#f2c94c'); R(c,210,108,8,2,'#f7df9a'); R(c,216,112,4,2,'#f2c94c');
+  // 像素面包
+  R(c,228,112,8,8,'#e8b48c');
+  // 小花朵
+  R(c,242,116,8,10,'#f7a0b0'); R(c,244,114,4,4,'#f2c94c');
+  // 花架
+  R(c,220,136,22,8,'#a07850'); R(c,222,130,4,6,'#a8d8a0'); R(c,228,128,6,8,'#a8d8a0'); R(c,236,132,4,6,'#a8d8a0');
+
+  // 两侧大盆栽
+  R(c,18,124,16,24,'#a07850'); R(c,16,114,20,12,'#6ba865'); R(c,20,108,12,8,'#a8d8a0'); R(c,14,118,6,8,'#8abf80');
+  R(c,286,124,16,24,'#a07850'); R(c,284,114,20,12,'#6ba865'); R(c,288,108,12,8,'#a8d8a0'); R(c,296,118,6,8,'#8abf80');
+
+  // 左下角小猫
+  drawCat(c,42,128,t);
+
+  // 店主女孩站在门口挥手
+  drawGirl(c,130,110,t, ((Math.floor(t*6)%8)<2)?'wave':'stand');
+
+  // 顾客
+  const n=S?clamp(Math.floor(S.demand/22),0,4):2;
+  for(let i=0;i<n;i++){
+    const px=Math.floor(((t*(12+i*5)+i*70)%360)-20);
+    putSprite(c,SPR_CUST,(i%2?PAL_C2:PAL_C1),px,138,false);
+  }
+}
+/* 封面：温馨像素小店（参考图风格） */
+function drawCoverScene(t){
+  const c=ctxBG;
+  c.clearRect(0,0,320,180);
+
+  // 天空渐变
+  const sky=c.createLinearGradient(0,0,0,120);
+  sky.addColorStop(0,'#a8d4f0'); sky.addColorStop(0.5,'#c8e4f4'); sky.addColorStop(1,'#f5e6d0');
+  c.fillStyle=sky; c.fillRect(0,0,320,120);
+  // 太阳
+  R(c,258,16,20,20,'#f7df9a'); R(c,262,20,12,12,'#fff3c4');
+  R(c,266,24,4,4,'#fff7d6');
+  // 太阳光晕
+  const sunGlow=0.3+Math.abs(Math.sin(t*0.8))*0.15;
+  c.fillStyle='rgba(247,223,154,'+sunGlow+')'; c.fillRect(248,6,40,40);
+  // 太阳光芒
+  for(let i=0;i<6;i++){
+    const a=t*0.6+i*1.047;
+    const x1=Math.round(268+Math.cos(a)*14), y1=Math.round(26+Math.sin(a)*14);
+    const x2=Math.round(268+Math.cos(a)*18), y2=Math.round(26+Math.sin(a)*18);
+    R(c,x1,y1,x2-x1,y2-y1,'#f7df9a');
+  }
+
+  // 云朵
+  const cx1=40+Math.sin(t*0.15)*6, cx2=180+Math.sin(t*0.12+1)*5;
+  R(c,cx1,22,30,8,'#fffdf8'); R(c,cx1+6,16,18,8,'#fffdf8'); R(c,cx1+12,12,10,6,'#fffdf8');
+  R(c,cx2,14,34,8,'#fffdf8'); R(c,cx2+8,8,18,8,'#fffdf8'); R(c,cx2+16,6,10,6,'#fffdf8');
+
+  // 远景建筑（矮房）
+  R(c,0,92,60,28,'#d4b890'); R(c,0,90,60,4,'#c8a878');
+  R(c,4,96,10,8,'#f2d9b8'); R(c,20,96,10,8,'#f2d9b8'); R(c,36,96,10,8,'#f2d9b8');
+  R(c,2,88,6,6,'#c89a6a'); R(c,22,86,8,8,'#c89a6a');
+  R(c,260,88,60,32,'#d4b890'); R(c,260,86,60,4,'#c8a878');
+  R(c,268,94,10,8,'#f2d9b8'); R(c,288,94,10,8,'#f2d9b8'); R(c,308,94,10,8,'#f2d9b8');
+  R(c,264,82,8,8,'#c89a6a'); R(c,284,80,10,10,'#c89a6a');
+
+  // 草地/地面
+  R(c,0,118,320,12,'#9fc878'); R(c,0,116,320,4,'#7fae5e');
+  R(c,0,128,320,52,'#d4b890'); R(c,0,126,320,4,'#c8a878');
+  // 石砖路
+  for(let y=130;y<180;y+=6) for(let x=0;x<320;x+=16){
+    R(c,x+(y%12===0?0:8),y,14,5,'#c8a878');
+  }
+
+  // === 店铺主体 ===
+  // 后墙（奶油色）
+  R(c,42,58,236,62,'#fdf3e0');
+  // 屋顶
+  R(c,38,52,244,10,'#a87a4e'); R(c,36,50,248,6,'#8a5a3b');
+  R(c,44,48,232,6,'#a87a4e');
+  // 屋顶瓦片纹理
+  for(let x=44;x<276;x+=12){ R(c,x,44,10,4,'#c89a6a'); }
+  // 屋顶植物
+  R(c,58,40,6,8,'#8a6a4a'); R(c,54,34,14,10,'#6fae5e'); R(c,60,30,6,6,'#a8d8a0');
+  R(c,254,40,6,8,'#8a6a4a'); R(c,250,34,14,10,'#6fae5e'); R(c,256,30,6,6,'#a8d8a0');
+
+  // 木质招牌
+  R(c,80,26,160,22,'#7a5a40'); R(c,82,28,156,18,'#8a6a50');
+  R(c,78,28,4,18,'#5a3a20'); R(c,238,28,4,18,'#5a3a20');
+  R(c,80,24,160,4,'#5a3a20'); R(c,80,46,160,4,'#5a3a20');
+  // 招牌边框装饰
+  R(c,86,32,4,4,'#f7df9a'); R(c,230,32,4,4,'#f7df9a');
+  R(c,86,40,4,4,'#f7df9a'); R(c,230,40,4,4,'#f7df9a');
+  // 招牌文字 - 模拟小店经营
+  c.fillStyle='#fffdf8'; c.font='bold 16px "Microsoft YaHei",sans-serif';
+  const title='模拟小店经营';
+  const tw=c.measureText(title).width;
+  c.fillText(title,160-tw/2,42);
+  // 副标题飘带
+  R(c,118,50,84,8,'#e8d6ba'); R(c,116,52,88,4,'#fff3c4');
+  c.fillStyle='#7a5a40'; c.font='bold 8px "Microsoft YaHei",sans-serif';
+  const sub='你的选择·影响每一天';
+  const sw=c.measureText(sub).width;
+  c.fillText(sub,160-sw/2,58);
+
+  // 绿白条纹遮阳篷
+  R(c,40,60,240,6,'#5a4030'); // 木框
+  const AWG='#6fae5e', AWW='#f2f8f0';
+  for(let x=42;x<278;x+=8){ R(c,x,64,4,18,AWG); R(c,x+4,64,4,18,AWW); }
+  for(let x=42;x<278;x+=8){ R(c,x+1,82,6,3,AWG); } // 锯齿底边
+  // 遮阳篷悬挂小装饰
+  R(c,60,84,4,6,'#e88aa0'); R(c,160,84,4,6,'#f2c94c'); R(c,258,84,4,6,'#e88aa0');
+
+  // 左橱窗：甜品展示
+  R(c,50,88,82,30,'#f2e8d0'); R(c,52,90,78,26,'#fff8e8');
+  R(c,52,108,78,4,'#c8a080'); // 展台
+  // 蛋糕1（草莓）
+  R(c,58,98,16,12,'#f2c94c'); R(c,60,94,12,4,'#f7a0b0'); R(c,64,92,4,2,'#d85060');
+  // 蛋糕2（巧克力）
+  R(c,80,100,14,10,'#c8a080'); R(c,82,96,10,4,'#f2c94c');
+  // 蛋糕3（芝士）
+  R(c,100,102,12,8,'#f7e0a0'); R(c,102,98,8,4,'#a8d8a0');
+  // 橱窗反光
+  if(Math.floor(t*2)%3<2){ R(c,52,90,78,2,'rgba(255,247,214,.5)'); }
+
+  // 木门
+  R(c,136,86,28,32,'#a07850'); R(c,138,88,24,28,'#8a6840');
+  R(c,156,102,4,4,'#f2c94c'); // 门把手
+  // OPEN挂牌
+  R(c,140,92,16,12,'#f7df9a'); R(c,142,94,12,8,'#fffdf8');
+  c.fillStyle='#5a4632'; c.font='bold 7px "Courier New",monospace';
+  c.fillText('OPEN',144,102);
+
+  // 右橱窗：黑板菜单
+  R(c,168,88,96,30,'#f2e8d0'); R(c,170,90,92,26,'#fff8e8');
+  // 黑板
+  R(c,176,94,80,20,'#3a3028'); R(c,178,96,76,16,'#4a4038');
+  // 菜单文字
+  c.fillStyle='#f7df9a'; c.font='bold 6px "Courier New",monospace';
+  c.fillText('MENU',206,100);
+  c.fillStyle='#fffdf8'; c.font='5px "Courier New",monospace';
+  c.fillText('COFFEE .... 3',180,108);
+  c.fillText('LATTE ...... 4',180,114);
+  c.fillText('MILK TEA ... 4',180,120);
+  c.fillText('CAKE ....... 5',180,126);
+
+  // 悬挂花篮
+  R(c,44,84,4,16,'#8a6a4a'); R(c,40,98,12,8,'#c89a6a');
+  R(c,38,92,4,4,'#f7a0b0'); R(c,44,90,4,4,'#f2c94c'); R(c,42,96,4,4,'#e88aa0');
+  R(c,272,84,4,16,'#8a6a4a'); R(c,268,98,12,8,'#c89a6a');
+  R(c,266,92,4,4,'#f7a0b0'); R(c,272,90,4,4,'#f2c94c'); R(c,270,96,4,4,'#e88aa0');
+
+  // 店主女孩（站在门旁挥手）
+  drawGirl(c,112,92,t,'wave');
+  R(c,116,106,6,4,'#f7df9a'); // 小柜台物品
+  R(c,118,104,2,4,'#a8d8a0'); // 杯子
+
+  // 右侧大盆栽
+  R(c,272,112,20,16,'#a07850'); R(c,268,100,28,16,'#6fae5e');
+  R(c,274,96,16,8,'#a8d8a0'); R(c,268,104,6,6,'#8abf80');
+  R(c,284,102,4,4,'#f7a0b0'); R(c,276,94,4,4,'#f7a0b0');
+
+  // 左侧大盆栽
+  R(c,28,112,20,16,'#a07850'); R(c,24,100,28,16,'#6fae5e');
+  R(c,30,96,16,8,'#a8d8a0'); R(c,24,104,6,6,'#8abf80');
+  R(c,20,102,4,4,'#f2c94c'); R(c,32,94,4,4,'#f7a0b0');
+
+  // 猫
+  drawCat(c,68,140,t);
+
+  // 小鸟
+  const bx=Math.floor((t*18)%280)+20, by=30+Math.floor(Math.sin(t*2)*8);
+  R(c,bx,by,6,2,'#5a4632'); R(c,bx+3,by-2,3,2,'#5a4632'); R(c,bx+2,by-1,1,1,'#d96a5a');
+
+  // 路灯
+  R(c,4,72,4,62,'#5a4632'); R(c,0,68,12,8,'#5a4632');
+  R(c,2,66,8,6,'#f7df9a');
+  const lampGlow=0.3+Math.abs(Math.sin(t*1.5))*0.1;
+  c.fillStyle='rgba(247,223,154,'+lampGlow+')'; c.fillRect(-6,56,24,24);
+
+  // 地面小花
+  const fxs=[96,112,130,150,170,192,212,232,252];
+  fxs.forEach((fx,i)=>{
+    const col=i%3===0?'#f7a0b0':i%3===1?'#f2c94c':'#e88aa0';
+    R(c,fx,150,3,3,col); R(c,fx+1,148,1,2,'#a8d8a0');
+  });
+
+  // 小牌子（左侧 DAY 牌）
+  R(c,6,132,22,20,'#7a5a40'); R(c,8,134,18,16,'#8a6a50');
+  c.fillStyle='#fffdf8'; c.font='bold 6px "Courier New",monospace';
+  c.fillText('DAY 01',10,142);
+  c.fillStyle='#f7df9a'; c.font='5px "Courier New",monospace';
+  c.fillText('MONEY',10,152);
+  c.fillStyle='#fffdf8'; c.fillText('1250',10,158);
+
+  // 右侧指示牌
+  R(c,286,132,28,24,'#7a5a40'); R(c,288,134,24,20,'#8a6a50');
+  c.fillStyle='#f7df9a'; c.font='bold 6px "Microsoft YaHei",sans-serif';
+  c.fillText('策略',290,142); c.fillText('资源',290,152); c.fillText('人际',290,162);
+}
+/* ============================================================
+   经营核心
+============================================================ */
+const SHOP_CFG={
+  coffee:{name:'咖啡店',basePrice:22,baseFlow:100,fixed:9000,pur:0.46},
+  tea:{name:'奶茶铺',basePrice:13,baseFlow:130,fixed:6200,pur:0.44},
+  store:{name:'便利店',basePrice:12,baseFlow:155,fixed:7600,pur:0.46},
+  snack:{name:'小吃店',basePrice:10,baseFlow:170,fixed:6200,pur:0.46}
+};
+const OPEN_COST=150000, START_CASH=0, PROFIT_GOAL=4000, HINT_PRICE=200, BANKRUPT_LINE=-5000;
+const MAX_MONTH=10, EMP=1;   // 10 个经营环节 = 1 个月
+let S=null;
+const RUNS=JSON.parse(localStorage.getItem('pixelShop.runs.v1')||'[]');
+let NG_UNLOCK=false;
+
+/* —— 10 道情景题 = 一个月里的 10 个经营环节（无标准答案；explain 为答后讲解的经济知识点） —— */
+const SCEN=[
+{id:1,t:'开业定价',s:'装修收尾，招牌挂上，明天就开业。\n定价，是你作为老板的第一个决定。',explain:'经济学里有个词叫「需求弹性」：东西越贵，愿意买的人越少，但每单赚得越多；越便宜，买的人越多，但每单赚得越少。低价冲量还是高价精品，没有标准答案——关键看你的成本和目标。',o:[
+ {l:'挂出 16 元的招牌价',d:'比周边低一截，海报已经印好',n:'人确实多了，但每单的利润薄了很多',fx:{price:-0.25,demand:()=>Math.round(4+Math.max(0,(62-S.demand))/4),cust:2}},
+ {l:'跟着周边定 22 元',d:'跟市场保持一致，不冒头',n:'价格不显眼，客流平稳',fx:{demand:2,rep:1}},
+ {l:'定 28 元，走精品路线',d:'装修陈列跟上去，卖贵一点',n:'店里有格调了，但愿意掏钱的顾客不多',fx:{price:0.28,demand:()=>Math.round(-2-Math.max(0,(S.rep-52))/15),rep:7}}
+]},
+{id:2,t:'选供应商',s:'进货渠道要定了。同样的货，三家报价。',explain:'这背后是「交易成本」：便宜货可能质量不稳、退货扯皮，反而更贵；本地采购贵一点，但新鲜、靠谱、出了问题好说话。供应商不是越便宜越好，而是要「信任成本」最低的那个。',o:[
+ {l:'线上批发商，价格最低',d:'下单快，但看不到货',n:'省了采购费，可货的质量不太稳定',fx:{supp:-11,costExtra:-0.04,cust:()=>Math.round(-1-Math.max(0,(S.rep-60))/14)}},
+ {l:'本地工坊，能现场看货',d:'价格高一点，但知根知底',n:'食材新鲜有口碑，成本也上去了',fx:{supp:8,comm:4,cust:2,costExtra:0.035}},
+ {l:'两家各进一半试试',d:'都不得罪，先跑一个月数据',n:'中庸之道，不好不坏',fx:{supp:5,cust:1,costExtra:0.015}}
+]},
+{id:3,t:'员工薪资',s:'兼职店员委婉地提起：隔壁店开的工资更高。',explain:'这叫「效率工资」理论：工资给得比市场略高，员工更珍惜这份工作、干活更用心、也不容易跳槽。表面多花一点工资，可能换来更好的服务和更低的招聘培训成本。',o:[
+ {l:'按最低工资标准',d:'把人力成本压到最低',n:'钱是省了，店员明显没精神',fx:{emp:-14,costExtra:-0.025,cust:()=>Math.round(-1-Math.max(0,(S.cust-48))/12)}},
+ {l:'给市场平均工资',d:'不多不少，大家都这样',n:'没惊喜也没怨言',fx:{emp:3}},
+ {l:'高出市场 20%',d:'多花钱，求个安心',n:'店员干劲十足，服务也热情了',fx:{emp:11,cust:3,costExtra:0.028}}
+]},
+{id:4,t:'大牌开在隔壁',s:'一家连锁大店在对面开业，周末人流被吸走一半。',explain:'小店的生存之道叫「差异化竞争」：跟巨头拼价格、拼规模必输，但可以拼「它没有的东西」——比如你独特的味道、跟街坊的人情味。经济学里，差异化就是避开直接竞争，找到自己的护城河。',o:[
+ {l:'全场七五折抢客流',d:'让利也要把人留住',n:'客流回来些，但利润被砍了一刀',fx:{price:-0.25,demand:()=>Math.round(3+Math.max(0,(58-S.cust))/6),rep:-3}},
+ {l:'研发一款招牌新品',d:'投钱做别人没有的东西',n:'有人专程来尝鲜，口碑慢慢起来',fx:{cash:-2000,demand:()=>Math.round(S.cash>2500?7:(S.cash>0?3:0)),rep:()=>Math.round(S.cash>2500?4:(S.cash>0?1:0))}},
+ {l:'跟周边小店联合搞市集',d:'出点钱，把街区做成热点',n:'街坊抱团，人气和人情都涨了',fx:{cash:-1800,comm:9,demand:4,rep:4}}
+]},
+{id:5,t:'会员与促销',s:'熟客变多，是时候留住他们了。',explain:'经济学里有个概念叫「客户生命周期价值」：留住一个老客户，比拉一个新客户省钱得多。会员制度、积分、生日券，都是在用小小的成本，把「一次性客人」变成「长期朋友」。',o:[
+ {l:'贴出八折海报，热闹三天',d:'先冲一波人气',n:'人气旺了，但价格被看低了',fx:{price:-0.2,demand:()=>Math.round(2+Math.max(0,(62-S.cust))/6),cust:3}},
+ {l:'上线会员卡和生日券',d:'印卡、装系统，先花一笔',n:'回头客明显多了，复购在变稳',fx:{cash:-1800,rep:()=>Math.round(S.cash>2000?5:(S.cash>0?1:0)),cust:()=>Math.round(S.cash>2000?4:(S.cash>0?1:0)),demand:()=>Math.round(S.cash>2000?3:(S.cash>0?1:0))}},
+ {l:'维持原样，再观察',d:'一分钱不花',n:'老客照常来，但新客在变少',fx:{demand:-3,cust:-2}}
+]},
+{id:6,t:'外卖抽成上涨',s:'外卖平台把佣金从 18% 提到 25%，订单却占了三成。',explain:'平台替你带来客流，但会抽走一笔「过路费」，这叫渠道成本。自建小程序、社群点单，前期要花钱、要经营，但长期看能省掉中间抽成，把客人握在自己手里。',o:[
+ {l:'接受 25% 抽成',d:'渠道不能断，先保订单',n:'订单保住了，利润被分走不少',fx:{costExtra:0.05,demand:2}},
+ {l:'自建点单小程序',d:'花一笔钱，把客人导回自己手里',n:'慢慢绕开平台，但前期花了钱',fx:{cash:-3000,demand:()=>Math.round(S.cash>3500?6:(S.cash>0?2:0)),rep:()=>Math.round(S.cash>3500?4:(S.cash>0?1:0)),comm:2}},
+ {l:'外卖价上调 15%',d:'把抽成转给点外卖的人',n:'平台省了，点外卖的人也少了',fx:{price:0.12,demand:-7,cust:-5}}
+]},
+{id:7,t:'资金周转',s:'又要交房租、又要备货，账上现金告急。',explain:'记住一句话：利润不等于现金。账面上赚钱，不代表手里有钱。周转困难时，借钱有成本（利息），拖欠供应商会毁掉信用（下次拿货更难更贵）。现金流，是老板的第一课。',o:[
+ {l:'银行贷款',d:'正规渠道，利息约 ¥120/环节',n:'钱到位了，利息要慢慢还',fx:{cash:18000,loanPay:1200,rep:1}},
+ {l:'找朋友周转',d:'免息，按月还，欠人情',n:'朋友仗义，钱是小事',fx:{cash:12000,comm:3}},
+ {l:'先拖欠供应商',d:'货款压到下个月再说',n:'账期拖住了，供货商很不高兴',fx:{cash:16000,supp:-20,rep:-5,comm:-4}}
+]},
+{id:8,t:'食安传闻',s:'有人在网上发帖，说你家东西不干净（是谣言）。',explain:'这叫「信息不对称」：顾客没法亲眼检查你的后厨，只能靠信任买单。声誉就像存款，攒起来很慢，毁掉很快。花小钱自证清白（检测报告、开放后厨），是在给信任充值。',o:[
+ {l:'请检测机构，公开后厨',d:'花 ¥4,000 自证清白',n:'报告一出，谣言不攻自破',fx:{cash:-4000,rep:7,cust:5,demand:2}},
+ {l:'发一纸声明',d:'文字回应，不花钱',n:'回应太轻，怀疑的人还是多',fx:{rep:-3,cust:-4}},
+ {l:'不理，等风头过去',d:'清者自清',n:'谣言越传越远，客流肉眼可见地少了',fx:{rep:-11,cust:-9,demand:-7}}
+]},
+{id:9,t:'员工要福利',s:'店员们联名提出：要五险一金、要带薪休假。',explain:'福利不是成本，是「人力资本投资」。稳定的团队意味着更少的招聘、培训、磨合成本，和更好的服务。经济学讲「激励相容」：让员工的目标和店的目标一致，店才能长久。',o:[
+ {l:'全员加薪 + 补上五险一金',d:'支出明显增加',n:'团队稳了，客人也感觉到了好服务',fx:{emp:16,comm:4,costExtra:0.03}},
+ {l:'绩效奖金制',d:'涨一点，跟业绩挂钩',n:'有激励也有约束，中规中矩',fx:{emp:8,cust:2,costExtra:0.01}},
+ {l:'口头承诺，以后再谈',d:'先画饼',n:'人心散了，服务明显变差',fx:{emp:-17,cust:-4}}
+]},
+{id:10,t:'淡季与寒冬',s:'经济下行 + 淡季，街上的人肉眼可见地少了。',explain:'需求是有周期的：旺季和淡季循环出现。淡季怎么过，取决于你的现金储备——降价促销是用利润换现金流，研发新品是用投资换未来。没有完美答案，只有适合你的答案。',o:[
+ {l:'全场七折，清一波库存',d:'用利润换现金流',n:'东西卖动了，但利润薄',fx:{price:-0.2,demand:()=>Math.round(2+Math.max(0,(58-S.demand))/5),cust:2}},
+ {l:'上冬季限定新品',d:'投钱做热饮暖食',n:'新品成了冬日招牌，口碑不错',fx:{cash:-2000,demand:()=>Math.round(S.cash>2500?6:(S.cash>0?3:0)),rep:()=>Math.round(S.cash>2500?4:(S.cash>0?1:0))}},
+ {l:'缩短营业时间',d:'省水电人工',n:'账是省了，晚归的客人买不到了',fx:{costExtra:-0.03,demand:-8,cust:-4,comm:-4}}
+]}
+];
+/* —— 随机市场事件 —— */
+const EVENTS=[
+ {t:'市政府发放本地消费券',fx:{demand:3}},
+ {t:'新地铁站开通，客流上升',fx:{demand:4}},
+ {t:'网红探店视频走红',fx:{rep:3,demand:2}},
+ {t:'隔壁装修噪音不断',fx:{demand:-8}},
+ {t:'房租续约上调',fx:{fixedExtra:1200}},
+ {t:'原材料市场涨价',fx:{costExtra:0.03}},
+ {t:'流感季节，街上人少',fx:{demand:-8}},
+ {t:'社区办夜市，晚间热闹',fx:{demand:3,comm:2}},
+ {t:'外卖平台补贴大战',fx:{demand:2,costExtra:0.005}},
+ {t:'本地大学城开学',fx:{demand:3,comm:1}}
+];
+
+function newState(mode,opt){
+  S={mode, name:opt.name, age:opt.age, shopType:opt.shop,
+     cash:START_CASH, month:1, demand:58, price:1.0, rep:48, cust:52, emp:60, supp:60, comm:50,
+     revenue:0, expense:0, profit:0, totalProfit:0, totalRev:0, totalExp:0, peakProfit:0, losses:0,
+     mods:{fixedExtra:0,costExtra:0,loanPay:0},
+     log:[], series:{cash:[START_CASH],profit:[0]}, usedEvents:[], win:false, over:null, answeredMonth:0};
+  if(mode==='rep'){ S.rep+=5; S.comm+=3; }
+}
+function goalText(){
+  if(S.mode==='rep') return '口碑模式：声誉 ≥80 · 员工 ≥70 · 社区 ≥70 · 顾客 ≥70 · 不破产';
+  return '利润模式：本月累计净利润 ≥ ¥'+fmtI(PROFIT_GOAL);
+}
+function goalProgress(){
+  if(S.mode==='rep'){
+    const ok=[S.rep>=80,S.emp>=70,S.comm>=70,S.cust>=70,S.cash>BANKRUPT_LINE];
+    return ok.filter(Boolean).length/5;
+  }
+  return clamp(S.totalProfit/PROFIT_GOAL,0,1);
+}
+const FX_LABEL={demand:'需求',price:'价格',rep:'声誉',cust:'顾客',emp:'员工',supp:'供应商',comm:'社区',cash:'现金'};
+function applyFx(fx,from){
+  const parts=[];
+  for(const k in fx){
+    const v=(typeof fx[k]==='function')?fx[k]():fx[k];
+    if(k==='demand'){ S.demand=clamp(S.demand+v,10,130); }
+    else if(k==='price'){ S.price=clamp(S.price+v,0.6,1.6); }
+    else if(k==='rep'){ S.rep=clamp(S.rep+v,0,100); }
+    else if(k==='cust'){ S.cust=clamp(S.cust+v,0,100); }
+    else if(k==='emp'){ S.emp=clamp(S.emp+v,0,100); }
+    else if(k==='supp'){ S.supp=clamp(S.supp+v,0,100); }
+    else if(k==='comm'){ S.comm=clamp(S.comm+v,0,100); }
+    else if(k==='cash'){ S.cash+=v; }
+    else if(k==='costExtra'){ S.mods.costExtra=clamp(S.mods.costExtra+v,-0.08,0.12); }
+    else if(k==='fixedExtra'){ S.mods.fixedExtra=clamp(S.mods.fixedExtra+v,0,4000); }
+    else if(k==='loanPay'){ S.mods.loanPay+=v; }
+    parts.push({label:FX_LABEL[k]||k,v});
+  }
+  if(from&&parts.length) addLog('市场波动：'+parts.map(p=>(p.v>=0?'+':'')+Math.round(p.v)+' '+p.label).join(' · '));
+  spawnChips(parts);
+  AudioEngine.sfx(fx.cash>0?'cash':(fx.cash<0?'buy':'click'));
+}
+/* —— 环节结算（每环节 = 3 天，10 环节 = 1 个月） —— */
+function settle(){
+  const cfg=SHOP_CFG[S.shopType];
+  const d=clamp(S.demand,0,130), r=clamp(S.rep,0,100);
+  const flow=cfg.baseFlow*(d/100)*(0.5+r/100*0.5);
+  const priceA=cfg.basePrice*clamp(S.price,0.6,1.6);
+  const days=3;
+  const revenue=flow*priceA*days;
+  const purch=revenue*cfg.pur*(1.2-clamp(S.supp,0,100)/250)+revenue*S.mods.costExtra;
+  const fixed=(cfg.fixed+S.mods.fixedExtra)*days/30;
+  const labor=EMP*4000*(1.1-clamp(S.emp,0,100)/200)*days/30;
+  const overdraft=S.cash<0 ? -S.cash*0.06 : 0;   // 现金透支按 6%/环节 罚息，逼玩家先解决现金流
+  const expense=fixed+Math.max(0,purch)+labor+overdraft+S.mods.loanPay*days/30;
+  const profit=revenue-expense;
+  S.cash+=profit;
+  S.revenue=revenue; S.expense=expense; S.profit=profit;
+  S.totalProfit+=profit; S.totalRev+=revenue; S.totalExp+=expense;
+  S.peakProfit=Math.max(S.peakProfit,profit);
+  if(profit<0) S.losses++; else S.losses=0;
+  S.series.cash.push(S.cash);
+  S.series.profit.push(profit);
+  const decay=[];
+  if(S.price>1.2){ S.demand-=2; S.cust-=2; decay.push('定价偏高，客流略降'); }
+  if(S.emp<45){ S.cust-=2; decay.push('员工情绪低，服务打折'); }
+  if(S.cust<45){ S.demand-=2; decay.push('口碑转差，客流下降'); }
+  if(S.supp<35){ S.mods.costExtra=Math.min(0.12,S.mods.costExtra+0.01); decay.push('供应商收紧账期，采购变贵'); }
+  S.demand=clamp(S.demand,10,130); S.cust=clamp(S.cust,0,100);
+  return {flow,priceA,revenue,purch,fixed,labor,expense,profit,decay};
+}
+/* —— 选择选项 —— */
+let lastSettle=null;
+function choose(opt,b){
+  b.disabled=true;
+  Array.from($('optList').children).forEach(x=>{ if(x!==b) x.disabled=true; });
+  b.classList.add('sel');
+  addLog('你选择了「'+opt.l+'」');
+  // 经济小课堂（无论是否买过提示都会出现）
+  const sc=SCEN[S.month-1];
+  $('explainTxt').textContent=sc.explain;
+  $('explainBox').classList.add('on');
+  $('btnHint').style.display='none';
+  // 应用影响（此时才显示浮动数字，玩家已选完）
+  applyFx(opt.fx);
+  AudioEngine.sfx('coin');
+  renderMini();
+  // 内部结算：实时更新现金/累计利润，但不打断答题
+  addLog('—— 环节 '+S.month+'/'+MAX_MONTH+' 经营 ——');
+  const r=settle();
+  lastSettle=r;
+  addLog('本环节净利 '+fmtS(r.profit)+'（本月累计 '+fmtS(S.totalProfit)+'）');
+  r.decay.forEach(tx=>addLog('⚠ '+tx));
+  // 醒目结算卡：只显示这题赚/亏了多少 + 本月累计
+  const note=$('resultNote');
+  note.style.display='block';
+  note.innerHTML=
+    '<div class="rnNarr">『'+opt.n+'』</div>'+
+    '<div class="rnBig '+(r.profit>=0?'pos':'neg')+'">'+(r.profit>=0?'+':'')+'¥'+fmtI(r.profit)+
+      '<span class="rnTag">'+(r.profit>=0?'本环节净赚':'本环节亏了')+'</span></div>'+
+    '<div class="rnCum">本月累计净利润：<b class="'+(S.totalProfit>=0?'pos':'neg')+'">'+(S.totalProfit>=0?'+':'')+'¥'+fmtI(S.totalProfit)+'</b></div>';
+  nextMonthEvent();
+  S.answeredMonth=S.month;
+  renderStats();
+  const btn=$('btnSettle2'); btn.style.display='block'; btn.style.borderColor='var(--warm2)';
+  if(S.cash<=BANKRUPT_LINE){ btn.textContent='查看结局 ▸'; btn.style.borderColor='var(--red)'; }
+  else if(S.month>=MAX_MONTH){ btn.textContent='查看经营报告 ▸'; }
+  else { btn.textContent='下一环节 ▸'; }
+  saveGame();
+}
+/* —— 下一题 / 最终报告 —— */
+$('btnSettle2').onclick=()=>{
+  AudioEngine.sfx('click');
+  if(S.cash<=BANKRUPT_LINE){ endGame('bankrupt'); return; }
+  if(S.month>=MAX_MONTH){ showFinalSettle(); return; }
+  S.month++;
+  saveGame();
+  renderAll(); showScen();
+};
+function checkWin(){
+  if(S.mode==='rep') return S.rep>=80&&S.emp>=70&&S.comm>=70&&S.cust>=70&&S.cash>BANKRUPT_LINE;
+  return S.totalProfit>=PROFIT_GOAL&&S.cash>BANKRUPT_LINE;
+}
+function nextMonthEvent(){
+  const pool=EVENTS.filter(e=>!S.usedEvents.includes(e.t));
+  if(!pool.length) return;
+  const ev=pool[Math.floor(Math.random()*pool.length)];
+  S.usedEvents.push(ev.t);
+  addLog('本月市场：'+ev.t);
+  applyFx(ev.fx);
+}
+/* —— 展示题目 —— */
+const TIPS=[
+'定价不只是数字，是你在跟顾客「谈价格」。',
+'留得住老顾客，小店才能长久。',
+'现金流比利润更紧急：账上有钱，才能活到明天。',
+'声誉是攒出来的存款，一次坏消息就能取走大半。',
+'没有完美的选项，只有适合你的选项。'
+];
+function showScen(){
+  const sc=SCEN[S.month-1];
+  $('scenTitle').textContent=sc.t;
+  typeText($('scenText'),sc.s,()=>{},34);
+  $('explainBox').classList.remove('on');
+  $('resultNote').style.display='none';
+  $('btnSettle2').style.display='none';
+  $('tipBox').textContent='★ '+TIPS[(S.month-1)%TIPS.length];
+  const box=$('optList'); box.innerHTML='';
+  // 这题已经答过（继续存档）：恢复已答状态
+  if(S.answeredMonth>=S.month){
+    $('btnHint').style.display='none';
+    $('explainTxt').textContent=sc.explain;
+    $('explainBox').classList.add('on');
+    sc.o.forEach((o,i)=>{
+      const b=document.createElement('button'); b.className='opt'; b.disabled=true;
+      b.innerHTML='<span class="ol">'+String.fromCharCode(65+i)+'</span><span class="od">'+o.d+'</span>';
+      box.appendChild(b);
+    });
+    const btn=$('btnSettle2'); btn.style.display='block'; btn.style.borderColor='var(--warm2)';
+    if(S.cash<=BANKRUPT_LINE){ btn.textContent='查看结局 ▸'; btn.style.borderColor='var(--red)'; }
+    else if(S.month>=MAX_MONTH){ btn.textContent='查看经营报告 ▸'; }
+    else { btn.textContent='下一环节 ▸'; }
+    renderMini(); renderGoalLine(); return;
+  }
+  // 未答：显示选项 + 购买提示入口（花自己的收入买，现金不足时禁用）
+  const hb=$('btnHint');
+  hb.style.display='block'; hb.disabled=S.cash<HINT_PRICE;
+  hb.textContent=S.cash<HINT_PRICE
+    ?'💡 购买提示（¥'+fmtI(HINT_PRICE)+'）· 现金不足'
+    :'💡 购买提示（¥'+fmtI(HINT_PRICE)+'）· 提前看这题的经济知识点';
+  sc.o.forEach((o,i)=>{
+    const b=document.createElement('button'); b.className='opt';
+    b.innerHTML='<span class="ol">'+String.fromCharCode(65+i)+'</span><span class="od">'+o.d+'</span>';
+    b.onclick=()=>choose(o,b);
+    box.appendChild(b);
+  });
+  renderMini(); renderGoalLine();
+}
+/* —— 最终结算弹层（答完 10 个环节 = 经营满一个月后出现一次） —— */
+function showFinalSettle(){
+  const b=$('settleBody');
+  const ok=checkWin();
+  b.innerHTML='<div style="font-size:13px;color:var(--dim);margin-bottom:4px">10 个环节答完 · 一个月经营结束</div>'+
+    '<div class="row"><span class="k">本月总收入（10 环节）</span><span class="v" style="color:var(--green)">+¥'+fmtI(S.totalRev)+'</span></div>'+
+    '<div class="row"><span class="k">本月总支出（10 环节）</span><span class="v">-¥'+fmtI(S.totalExp)+'</span></div>'+
+    '<div class="row total"><span class="k">本月累计净利润</span><span class="v '+(S.totalProfit>=0?'pos':'neg')+'">'+(S.totalProfit>=0?'+':'')+'¥'+fmtI(S.totalProfit)+'</span></div>'+
+    '<div class="row"><span class="k">手头现金</span><span class="v" style="color:var(--warm2)">'+fmtC(S.cash)+'</span></div>'+
+    (ok?'<div class="okLine">✓ 通关达成：本月累计净利润 ≥ ¥'+fmtI(PROFIT_GOAL)+'</div>':'<div class="warnLine">未达通关线：'+goalText()+'</div>');
+  $('modal').classList.add('on');
+  $('btnSettle').textContent='查看结局 ▸';
+  $('btnSettle').onclick=()=>{
+    $('modal').classList.remove('on');
+    AudioEngine.sfx('click');
+    endGame(ok?'win':'timeout');
+  };
+}
+/* —— 结束 —— */
+function endGame(kind){
+  S.over=kind; S.win=(kind==='win');
+  AudioEngine.sfx(kind==='win'?'win':'lose');
+  saveRun();
+  showResult();
+}
+/* —— HUD（简洁：现金 / 本月累计净利 / 进度） —— */
+function renderStats(){
+  $('stCash').textContent=fmtC(S.cash);
+  $('stCash').className='v'+(S.cash<0?' neg':'');
+  const p=$('stPl'); p.textContent=(S.totalProfit>=0?'+':'')+'¥'+fmtI(S.totalProfit);
+  p.className='v'+(S.totalProfit>=0?' pos':' neg');
+  $('stMon').textContent='环节 '+S.month+' / '+MAX_MONTH;
+}
+function renderMini(){
+  if(!S) return;
+  $('miniStats').innerHTML=
+    '<span class="ms"><span class="k">需求</span><span class="v">'+Math.round(S.demand)+'</span></span>'+
+    '<span class="ms"><span class="k">声誉</span><span class="v">'+Math.round(S.rep)+'</span></span>'+
+    '<span class="ms"><span class="k">顾客</span><span class="v">'+Math.round(S.cust)+'</span></span>'+
+    '<span class="ms"><span class="k">员工</span><span class="v">'+Math.round(S.emp)+'</span></span>'+
+    '<span class="ms"><span class="k">供应商</span><span class="v">'+Math.round(S.supp)+'</span></span>'+
+    '<span class="ms"><span class="k">社区</span><span class="v">'+Math.round(S.comm)+'</span></span>';
+}
+function renderGoalLine(){
+  $('goalLine').innerHTML='<b>利润模式：</b>答完 10 个环节（= 经营 1 个月）后，<b>本月累计净利润 ≥ ¥'+fmtI(PROFIT_GOAL)+'</b> 即通关'+
+    '<br><b>口碑模式：</b>声誉≥80 · 员工≥70 · 社区≥70 · 顾客≥70 · 不破产'+
+    (NG_UNLOCK?' <span style="color:var(--green)">✓ 已解锁</span>':' <span style="color:var(--dim)">（通关利润模式后解锁）</span>');
+}
+function addLog(txt){
+  const div=document.createElement('div');
+  div.style.padding='2px 0';
+  div.textContent=txt;
+  const body=$('logBody');
+  body.insertBefore(div,body.firstChild);
+  while(body.children.length>12) body.removeChild(body.lastChild);
+}
+function renderAll(){ renderStats(); renderMini(); renderGoalLine(); }
+/* —— 浮动数值 —— */
+function spawnChips(parts){
+  const layer=$('fxLayer');
+  parts.forEach((p,i)=>{
+    if(p.label==='采购成本'||p.label==='固定成本'||p.label==='月还款') return;
+    const d=document.createElement('div');
+    d.className='fxchip '+(p.v>=0?'p':'m');
+    d.textContent=(p.v>=0?'+':'')+Math.round(p.v)+' '+p.label;
+    d.style.left=(30+Math.random()*40)+'%';
+    d.style.top=(30+Math.random()*18)+'%';
+    d.style.animationDelay=(i*0.12)+'s';
+    layer.appendChild(d);
+    setTimeout(()=>d.remove(),1600+i*120);
+  });
+}
+/* ============================================================
+   界面流程
+============================================================ */
+const SCR={title:'scr-title',id:'scr-id',game:'scr-game',result:'scr-result'};
+let bgMode='title', curScreen='title';
+function showScreen(name){
+  curScreen=name;
+  Object.values(SCR).forEach(id=>$(id).classList.toggle('active',id===SCR[name]));
+  $('subBar').style.display=(name==='story')?'block':'none';
+  $('subHint').style.display=(name==='story')?'block':'none';
+}
+/* —— 打字机 —— */
+let typeTimer=null;
+function typeText(el,text,cb,spd){
+  clearInterval(typeTimer);
+  el.textContent=''; $('app').classList.remove('typing');
+  let i=0; const speed=spd||42;
+  typeTimer=setInterval(()=>{
+    i+=2;
+    el.textContent=text.slice(0,i);
+    if(i>=text.length){ clearInterval(typeTimer); typeTimer=null; if(cb)cb(); }
+  },speed);
+}
+function finishTyping(){
+  if(typeTimer){ clearInterval(typeTimer); typeTimer=null;
+    const el=$('subText'); if(STORY_LINES && STORY_LINES[lineIdx]!==undefined) el.textContent=STORY_LINES[lineIdx];
+  }
+}
+/* —— 章节 1.1（精简版） —— */
+const CHAPTER1=[
+ {scene:'dream',lines:['辞职后，你决定用全部积蓄开一家自己的小店。']}
+];
+let STORY_LINES=null, chapterIdx=0, lineIdx=0;
+function startStory(){
+  showScreen('story'); chapterIdx=0; lineIdx=0;
+  AudioEngine.playSong('story');
+  playChapter();
+}
+function playChapter(){
+  const ch=CHAPTER1[chapterIdx];
+  STORY_LINES=ch.lines; lineIdx=0;
+  bgMode=ch.scene;
+  typeLine();
+}
+function typeLine(){
+  $('app').classList.add('typing');
+  typeText($('subText'),STORY_LINES[lineIdx],()=>$('app').classList.remove('typing'),36);
+}
+function storyClick(){
+  if(typeTimer){ finishTyping(); return; }
+  lineIdx++;
+  if(lineIdx<STORY_LINES.length){ typeLine(); return; }
+  chapterIdx++;
+  if(chapterIdx<CHAPTER1.length){ playChapter(); return; }
+  showIdentity();
+}
+/* —— 身份设定 —— */
+let idSel={shop:'coffee',mode:'profit'};
+function showIdentity(modePreset){
+  if(modePreset) idSel.mode=modePreset;
+  showScreen('id');
+  AudioEngine.playSong('title');
+  buildChips();
+  drawPortrait();
+  $('inpName').value=S&&S.name?S.name:'';
+  $('inpAge').value=(S&&S.age)?S.age:'26';
+  refreshInit();
+}
+function buildChips(){
+  const chip=(arr,val,label,mini)=>{
+    const d=document.createElement('button');
+    d.className='chip'+(val===idSel[arr]?' on':'');
+    d.innerHTML=label+(mini?'<span class="mini">'+mini+'</span>':'');
+    d.onclick=()=>{ idSel[arr]=val; buildChips(); refreshInit(); drawPortrait(); AudioEngine.sfx('click'); };
+    return d;
+  };
+  const cs=$('chipsShop'); cs.innerHTML='';
+  Object.keys(SHOP_CFG).forEach(k=>{ cs.appendChild(chip('shop',k,SHOP_CFG[k].name)); });
+  const cm=$('chipsMode'); cm.innerHTML='';
+  cm.appendChild(chip('mode','profit','利润模式','本月累计净利 ≥ ¥'+fmtI(PROFIT_GOAL)));
+  const r=chip('mode','rep','口碑模式',NG_UNLOCK?'声誉≥80·员工≥70·社区≥70·顾客≥70':'通关后解锁');
+  if(!NG_UNLOCK){ r.classList.add('locked'); r.disabled=true; }
+  cm.appendChild(r);
+  const md=$('modeDesc');
+  if(idSel.mode==='rep'){
+    md.innerHTML='<b>口碑模式怎么通关：</b>答完 10 个环节（= 经营 1 个月）后<br>'+
+      '声誉 ≥ <b>80</b> · 员工 ≥ <b>70</b> · 社区 ≥ <b>70</b> · 顾客 ≥ <b>70</b> · 不破产<br>'+
+      '不看利润，但一直亏钱，店也撑不到最后。';
+  }else{
+    md.innerHTML='<b>利润模式怎么通关（大白话）：</b><br>'+
+      '这一个月共 <b>10 个经营环节</b>（答 10 题，每答一题结算一次）。<br>'+
+      '答完 10 题后，<b>本月累计净利润 ≥ ¥'+fmtI(PROFIT_GOAL)+'</b> 就算通关<br>'+
+      '（≈ 这家店一个月净赚 ¥'+fmtI(PROFIT_GOAL)+'，平均每天净赚 ¥'+fmtI(Math.round(PROFIT_GOAL/30))+' 出头）。<br>'+
+      '<span style="color:var(--dim)">你从 ¥0 起步——¥150,000 已经全部投进开店。'+
+      '每一题赚了、亏了，都直接进你的现金；欠款超过 ¥'+fmtI(-BANKRUPT_LINE)+' 会倒闭。</span>';
+  }
+}
+function refreshInit(){
+  $('idInit').innerHTML=
+    '开店投入：<b class="g">¥150,000</b>（装修 · 设备 · 押金，已花完）<br>'+
+    '启动现金：<b class="g">¥0</b> · 员工：<b>0</b> · 本月收入：<b class="g">¥0</b> · 本月支出：<b class="g">¥0</b>';
+}
+function drawPortrait(){
+  const c=ctxPor; c.clearRect(0,0,200,125);
+  R(c,0,0,200,125,'#bfe0f2');
+  R(c,0,0,200,46,'#a8d4ea'); R(c,0,40,200,8,'#e8f4d8');
+  R(c,0,100,200,25,'#e8d0b0'); R(c,0,98,200,2,'#d4b890');
+  const col=SHOP_PAL[idSel.shop].col;
+  R(c,26,28,148,12,'#a87a4e');
+  c.fillStyle='#fffdf8'; c.font='bold 10px "Microsoft YaHei",sans-serif';
+  const sign=($('inpName').value||'小美')+'的'+SHOP_PAL[idSel.shop].name+'店';
+  c.fillText(sign,100-c.measureText(sign).width/2,37);
+  R(c,22,40,156,10,col);
+  for(let k=0;k<19;k++) if(k%2) R(c,22+k*8,40,4,10,'rgba(120,80,40,.3)');
+  R(c,32,50,136,48,'#fdf3e0');
+  R(c,40,54,52,26,'#fff3c4'); R(c,42,56,20,12,'#e8b48c'); R(c,66,56,20,12,'#f2c94c');
+  R(c,96,50,16,52,'#a87a4e');
+  R(c,118,54,52,26,'#fff3c4'); R(c,128,70,24,10,'#c8a080');
+  R(c,34,96,136,2,'#e8d6ba');
+  drawGirl(c,168,84,0.3,'stand');
+}
+function startGame(){
+  const name=($('inpName').value||'').trim();
+  if(!name){ $('idWarn').textContent='✗ 先给小女孩起个名字吧'; return; }
+  const age=($('inpAge').value||'').trim();
+  if(!age||+age<16||+age>99){ $('idWarn').textContent='✗ 年龄请填 16~99 之间的数字'; return; }
+  $('idWarn').textContent='';
+  newState(idSel.mode,{name,shop:idSel.shop,age});
+  saveGame();
+  showScreen('game');
+  bgMode='game';
+  AudioEngine.playSong('game');
+  AudioEngine.sfx('coin');
+  $('scenTitle').textContent=''; $('scenText').textContent=''; $('optList').innerHTML='';
+  $('logBody').innerHTML='';
+  addLog('欢迎，'+S.name+'！你的小店开张啦 ✿ 这是第一个月的第 1 个经营环节。');
+  renderAll();
+  showScen();
+}
+/* —— 存档 —— */
+const SAVE_KEY='pixelShop.save.v1';
+function saveGame(){ if(!S) return; localStorage.setItem(SAVE_KEY,JSON.stringify({S,idSel})); }
+function saveRun(){
+  const rec={mode:S.mode,result:S.over,name:S.name,shop:S.shopType,months:S.month,
+    cash:S.cash,peak:Math.round(S.totalProfit),rep:S.rep,emp:S.emp,cust:S.cust,supp:S.supp,comm:S.comm};
+  RUNS.unshift(rec); if(RUNS.length>12) RUNS.length=12;
+  localStorage.setItem('pixelShop.runs.v1',JSON.stringify(RUNS));
+  NG_UNLOCK=true;
+  localStorage.removeItem(SAVE_KEY);
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    const obj=JSON.parse(raw); S=obj.S; idSel=obj.idSel||idSel;
+    return true;
+  }catch(e){ return false; }
+}
+function resetSave(){
+  if(!confirm('确定要重置存档和历史记录吗？')) return;
+  localStorage.removeItem(SAVE_KEY); localStorage.removeItem('pixelShop.runs.v1');
+  RUNS.length=0; NG_UNLOCK=false;
+  refreshTitle();
+}
+/* —— 标题 —— */
+function refreshTitle(){
+  const ok=loadGame();
+  $('btnContinue').disabled=!ok;
+  if(ok){
+    $('btnContinue').innerHTML='继续经营<span class="small">'+S.name+' · 环节'+S.month+'/'+MAX_MONTH+' · '+(S.mode==='rep'?'口碑模式':'利润模式')+'</span>';
+  }else{
+    $('btnContinue').innerHTML='继续经营<span class="small">（暂无存档）</span>';
+  }
+}
+function showTitle(){
+  showScreen('title'); bgMode='title';
+  AudioEngine.playSong('title');
+  refreshTitle();
+}
+/* —— 结果报告（简约温馨） —— */
+const KIND_TXT={
+  win:['目标达成！','你的小店这个月跑出了盈利','win'],
+  bankrupt:['小店倒闭了…','欠款超过 ¥'+fmtI(-BANKRUPT_LINE)+'，现金流断裂。没关系，再来一局吧','lose'],
+  timeout:['时间到了','一个月经营结束，店还活着，但没到通关线','over']
+};
+function showResult(){
+  showScreen('result');
+  const k=KIND_TXT[S.over];
+  const t=$('resTitle'); t.textContent=k[0]; t.className=k[2];
+  t.innerHTML=k[0]+'<div class="sub">'+k[1]+'</div>';
+  const cfg=SHOP_CFG[S.shopType];
+  const welfare=Math.round((S.emp+S.cust+S.supp+S.comm)/4);
+  const sustain=S.series.profit.filter(p=>p>0).length;
+  $('resStats').innerHTML=
+    '<b>店主：</b>'+S.name+'（'+S.age+'岁）　<b>店铺：</b>'+cfg.name+'<br>'+
+    '<b>模式：</b>'+(S.mode==='rep'?'口碑模式':'利润模式')+'<br>'+
+    '<b>经营环节：</b>'+S.month+' / '+MAX_MONTH+'　<b>本月累计净利：</b>'+(S.totalProfit>=0?'+':'')+'¥'+fmtI(S.totalProfit)+'<br>'+
+    '<b>最终现金：</b>'+fmtC(S.cash)+'　<b>最后环节净利：</b>'+(S.profit>=0?'+':'')+'¥'+fmtI(S.profit);
+  $('resFootprint').innerHTML=
+    '<div class="ft">♨ 经济足迹</div>'+
+    '声誉 <span class="hl">'+Math.round(S.rep)+'</span> · 顾客 <span class="hl">'+Math.round(S.cust)+'</span> · 员工 <span class="hl">'+Math.round(S.emp)+'</span> · 供应商 <span class="hl">'+Math.round(S.supp)+'</span> · 社区 <span class="hl">'+Math.round(S.comm)+'</span><br>'+
+    '盈利环节：'+sustain+'/'+Math.max(1,S.series.profit.length)+' 个环节为正<br>'+
+    '<span class="hl">综合福祉评分：'+welfare+'/100</span>　—— 利润不是唯一的目标';
+  $('resRuns').innerHTML=RUNS.length?'<div style="font-size:13px;color:var(--dim);margin-bottom:4px">历史足迹</div>'+RUNS.map((r,i)=>
+    '<div>'+(i+1)+'. '+(r.mode==='rep'?'[口碑]':'[利润]')+
+    (r.result==='win'?'<b style="color:var(--green)">通关</b>':r.result==='bankrupt'?'<b style="color:var(--red)">倒闭</b>':'<b style="color:var(--amber)">时间到</b>')+
+    ' · '+r.name+' · '+r.months+'月 · 现金'+fmtC(r.cash)+'</div>').join(''):'';
+  const btns=$('resBtns'); btns.innerHTML='';
+  const b1=document.createElement('button'); b1.className='btn primary'; b1.innerHTML='再来一局 · '+(S.mode==='rep'?'口碑模式':'利润模式');
+  b1.onclick=()=>{ AudioEngine.sfx('click'); showIdentity(S.mode); };
+  btns.appendChild(b1);
+  if(NG_UNLOCK&&S.mode==='profit'){
+    const b2=document.createElement('button'); b2.className='btn'; b2.style.borderColor='var(--amber)'; b2.style.color='var(--warm2)';
+    b2.innerHTML='二周目 · 口碑模式<span class="small">不同目标：五项福祉达标</span>';
+    b2.onclick=()=>{ AudioEngine.sfx('buy'); showIdentity('rep'); };
+    btns.appendChild(b2);
+  }
+  const b3=document.createElement('button'); b3.className='btn ghost'; b3.textContent='回到标题';
+  b3.onclick=()=>{ AudioEngine.sfx('click'); showTitle(); };
+  btns.appendChild(b3);
+  AudioEngine.playSong(S.over==='win'?'win':'over');
+}
+/* —— 主循环 —— */
+let ANIMT=0;
+function loop(){
+  ANIMT+=1/60;
+  if(bgMode==='title') drawCoverScene(ANIMT);
+  else if(bgMode==='apt') drawApt(ANIMT);
+  else if(bgMode==='office') drawOffice(ANIMT);
+  else if(bgMode==='street') drawStreet(ANIMT);
+  else if(bgMode==='dream') drawDream(ANIMT);
+  else drawStreet(ANIMT);
+  if(curScreen==='game') drawShopScene(ANIMT);
+  requestAnimationFrame(loop);
+}
+/* —— 事件 —— */
+let audioReady=false;
+function ensureAudio(){
+  if(audioReady) return; audioReady=true;
+  AudioEngine.init(); AudioEngine.resume();
+  AudioEngine.playSong(AudioEngine.current||'title');
+}
+document.addEventListener('click',e=>{
+  if(!audioReady){ ensureAudio(); }
+  if(curScreen==='story' && !e.target.closest('button,input,select,label,a')){ storyClick(); }
+});
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'||e.code==='Enter'){
+    e.preventDefault();
+    if(curScreen==='story'){ storyClick(); }
+    else if($('modal').classList.contains('on')){ $('btnSettle').click(); }
+  }
+});
+$('btnNew').onclick=()=>{ AudioEngine.sfx('click'); startStory(); };
+$('btnContinue').onclick=()=>{
+  if(!loadGame()) return;
+  AudioEngine.sfx('click'); showScreen('game'); bgMode='game'; AudioEngine.playSong('game'); renderAll();
+  if(S.over) showResult();
+  else if(S.month>MAX_MONTH){ S.over='timeout'; saveRun(); showResult(); }
+  else showScen();
+};
+$('btnReset').onclick=()=>{ AudioEngine.sfx('click'); resetSave(); };
+$('btnStart').onclick=()=>{ AudioEngine.sfx('click'); startGame(); };
+$('inpName').addEventListener('input',()=>drawPortrait());
+$('btnHint').onclick=()=>{
+  if(!S||S.cash<HINT_PRICE) return;
+  AudioEngine.sfx('buy');
+  S.cash-=HINT_PRICE;
+  const sc=SCEN[S.month-1];
+  $('explainTxt').textContent=sc.explain;
+  $('explainBox').classList.add('on');
+  const hb=$('btnHint'); hb.disabled=true; hb.textContent='✔ 已购买提示';
+  addLog('花费 ¥'+fmtI(HINT_PRICE)+' 购买经济提示');
+  renderStats(); renderMini();
+};
+$('musicBtn').onclick=()=>{
+  AudioEngine.muted=!AudioEngine.muted;
+  $('musicBtn').classList.toggle('off',AudioEngine.muted);
+  $('musicBtn').textContent=AudioEngine.muted?'♪ 音乐关':'♪ 音乐开';
+  if(AudioEngine.muted) AudioEngine.playSong('title');
+};
+/* —— 启动 —— */
+refreshTitle();
+showTitle();
+loop();
+</script>
+</body>
+</html>
